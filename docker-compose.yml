@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  influxdb:
+    image: influxdb:2.7
+    container_name: hpm-influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
+      - DOCKER_INFLUXDB_INIT_ORG=heatpump-monitoring
+      - DOCKER_INFLUXDB_INIT_BUCKET=heatpump-data
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-auth-token
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - hpm-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hpm-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - hpm-network
+
+  collector:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.collector
+    container_name: hpm-collector
+    volumes:
+      - ./config:/app/config:ro
+      - ./src:/app/src:ro
+    environment:
+      - INFLUXDB_TOKEN=my-super-secret-auth-token
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_ORG=heatpump-monitoring
+      - INFLUXDB_BUCKET=heatpump-data
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - hpm-network
+
+  webapp:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.webapp
+    container_name: hpm-webapp
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config:/app/config:ro
+      - ./src:/app/src:ro
+    environment:
+      - INFLUXDB_TOKEN=my-super-secret-auth-token
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_ORG=heatpump-monitoring
+      - INFLUXDB_BUCKET=heatpump-data
+      - CONFIG_DIR=/app/config
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - hpm-network
+
+volumes:
+  influxdb-data:
+  influxdb-config:
+  grafana-data:
+
+networks:
+  hpm-network:
+    driver: bridge

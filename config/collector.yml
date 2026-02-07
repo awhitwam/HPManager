@@ -1,0 +1,17 @@
+collector:
+  poll_interval: 10  # seconds between polling cycles
+  batch_size: 100    # maximum number of points per batch
+  batch_interval: 5  # seconds between batch writes
+
+influxdb:
+  url: ${INFLUXDB_URL:-http://influxdb:8086}
+  org: ${INFLUXDB_ORG:-heatpump-monitoring}
+  bucket: ${INFLUXDB_BUCKET:-heatpump-data}
+  token: ${INFLUXDB_TOKEN}
+  timeout: 10  # seconds
+  retry_interval: 30  # seconds between reconnection attempts
+
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: json  # json or text
+  file: /var/log/hpm-collector.log  # optional log file path

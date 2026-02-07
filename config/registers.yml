@@ -1,0 +1,350 @@
+# Modbus register mappings for Stiebel Eltron heat pumps
+# Based on Modbus TCP/IP documentation for heat pumps with WPM
+# Connection: Modbus TCP, Port 502, Slave ID: 1
+
+models:
+  stiebel_eltron_wpm:
+    description: "Stiebel Eltron heat pumps with WPM (Heat Pump Manager)"
+    registers:
+      # Block 1: System values (Read input register) - Address offset 500
+
+      # Temperature sensors
+      - name: actual_temperature_fe7
+        address: 501
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Actual temperature FE7 (room sensor)"
+
+      - name: set_temperature_fe7
+        address: 502
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Set temperature FE7"
+
+      - name: outside_temperature
+        address: 507
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Outside temperature"
+
+      - name: actual_temperature_hk1
+        address: 508
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Actual temperature heating circuit 1"
+
+      - name: set_temperature_hk1
+        address: 510
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Set temperature heating circuit 1"
+
+      - name: actual_temperature_hk2
+        address: 511
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Actual temperature heating circuit 2"
+
+      - name: set_temperature_hk2
+        address: 512
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Set temperature heating circuit 2"
+
+      - name: actual_flow_temperature
+        address: 515
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Actual flow temperature"
+
+      - name: actual_return_temperature
+        address: 516
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Actual return temperature"
+
+      - name: actual_buffer_temperature
+        address: 518
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Actual buffer temperature"
+
+      - name: actual_dhw_temperature
+        address: 522
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Actual DHW (domestic hot water) temperature"
+
+      - name: set_dhw_temperature
+        address: 523
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Set DHW temperature"
+
+      # Heat pump specific temperatures
+      - name: source_temperature
+        address: 536
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Source temperature (brine/water)"
+
+      - name: hot_gas_temperature
+        address: 544
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Hot gas temperature heat pump 1"
+
+      # Pressures
+      - name: heating_pressure
+        address: 520
+        register_type: input
+        data_type: int16
+        unit: bar
+        scale: 0.01
+        description: "Heating circuit pressure"
+
+      - name: low_pressure
+        address: 545
+        register_type: input
+        data_type: int16
+        unit: bar
+        scale: 0.01
+        description: "Low pressure heat pump 1"
+
+      - name: high_pressure
+        address: 547
+        register_type: input
+        data_type: int16
+        unit: bar
+        scale: 0.01
+        description: "High pressure heat pump 1"
+
+      # Flow rate
+      - name: flow_rate
+        address: 521
+        register_type: input
+        data_type: int16
+        unit: l/min
+        scale: 0.1
+        description: "Heating circuit flow rate"
+
+      - name: wp_water_flow_rate
+        address: 548
+        register_type: input
+        data_type: int16
+        unit: l/min
+        scale: 0.1
+        description: "Heat pump water flow rate"
+
+      # Block 2: System parameters (Read/write holding register) - Address offset 1500
+
+      - name: operating_mode
+        address: 1501
+        register_type: holding
+        data_type: uint16
+        unit: enum
+        scale: 1
+        description: "Operating mode"
+        enum_values:
+          0: "Emergency operation"
+          1: "Standby mode"
+          2: "Programmed operation"
+          3: "Comfort mode"
+          4: "ECO mode"
+          5: "DHW mode"
+
+      - name: comfort_temperature_hk1
+        address: 1502
+        register_type: holding
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Comfort temperature heating circuit 1"
+
+      - name: eco_temperature_hk1
+        address: 1503
+        register_type: holding
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "ECO temperature heating circuit 1"
+
+      - name: heating_curve_rise_hk1
+        address: 1504
+        register_type: holding
+        data_type: int16
+        unit: dimensionless
+        scale: 0.01
+        description: "Heating curve rise heating circuit 1"
+
+      - name: comfort_temperature_hk2
+        address: 1505
+        register_type: holding
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Comfort temperature heating circuit 2"
+
+      - name: eco_temperature_hk2
+        address: 1506
+        register_type: holding
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "ECO temperature heating circuit 2"
+
+      - name: comfort_temperature_dhw
+        address: 1510
+        register_type: holding
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Comfort temperature DHW"
+
+      - name: eco_temperature_dhw
+        address: 1511
+        register_type: holding
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "ECO temperature DHW"
+
+      # Block 3: System status (Read input register) - Address offset 2500
+
+      - name: operating_status
+        address: 2501
+        register_type: input
+        data_type: uint16
+        unit: bitmap
+        scale: 1
+        description: "Operating status (bit-coded)"
+
+      - name: fault_status
+        address: 2504
+        register_type: input
+        data_type: uint16
+        unit: enum
+        scale: 1
+        description: "Fault status"
+        enum_values:
+          0: "No fault"
+          1: "Fault"
+
+      - name: compressor_running
+        address: 2501
+        register_type: input
+        data_type: uint16
+        unit: bitmap
+        scale: 1
+        description: "Compressor running status (bit 6 of operating status)"
+
+      # Block 4: Energy data (Read input register) - Address offset 3500
+
+      - name: heat_meter_heating_day
+        address: 3501
+        register_type: input
+        data_type: uint16
+        unit: kwh
+        scale: 1
+        description: "Heat meter heating daily"
+
+      - name: heat_meter_dhw_day
+        address: 3504
+        register_type: input
+        data_type: uint16
+        unit: kwh
+        scale: 1
+        description: "Heat meter DHW daily"
+
+      - name: power_consumption_heating_day
+        address: 3511
+        register_type: input
+        data_type: uint16
+        unit: kwh
+        scale: 1
+        description: "Power consumption heating daily"
+
+      - name: power_consumption_dhw_day
+        address: 3514
+        register_type: input
+        data_type: uint16
+        unit: kwh
+        scale: 1
+        description: "Power consumption DHW daily"
+
+      - name: compressor_hours_heating
+        address: 3528
+        register_type: input
+        data_type: uint16
+        unit: hours
+        scale: 1
+        description: "Compressor runtime heating"
+
+      - name: compressor_hours_dhw
+        address: 3530
+        register_type: input
+        data_type: uint16
+        unit: hours
+        scale: 1
+        description: "Compressor runtime DHW"
+
+      # Power measurement
+      - name: inverter_power
+        address: 3679
+        register_type: input
+        data_type: int16
+        unit: kw
+        scale: 0.1
+        description: "Inverter power consumption (real-time electrical power)"
+
+      # Calculated/derived values
+      - name: cop_heating
+        address: 3501  # Will need calculation from heat output / power input
+        register_type: input
+        data_type: uint16
+        unit: dimensionless
+        scale: 0.1
+        description: "Coefficient of Performance (COP) for heating - calculated"
+
+# Notes:
+# 1. Register addresses are 1-based as per ISG configuration
+# 2. For input registers, use function code 04 (Read Input Registers)
+# 3. For holding registers, use function code 03 (Read Holding Registers) and 06/16 for writing
+# 4. Data type conversions:
+#    - int16: signed 16-bit (-32768 to 32767)
+#    - uint16: unsigned 16-bit (0 to 65535)
+#    - Scale 0.1 means divide by 10 when reading, multiply by 10 when writing
+#    - Scale 0.01 means divide by 100 when reading, multiply by 100 when writing
+# 5. Unavailable objects return substitute value 32768 (0x8000)
+# 6. Connection parameters:
+#    - IP: 192.168.0.126 (default) or DHCP assigned
+#    - Port: 502
+#    - Slave ID: 1 (permanent)

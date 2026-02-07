@@ -1,0 +1,47 @@
+heatpumps:
+  - id: hp1
+    name: Main Heat Pump
+    location: Basement
+    model: stiebel_eltron_wpm  # Reference to model in registers.yml
+    enabled: true
+    modbus:
+      type: tcp  # tcp or rtu
+      host: 192.168.0.126  # IP address for TCP (default ISG address)
+      port: 502            # Modbus port (typically 502)
+      unit_id: 1           # Modbus slave/unit ID (permanent for ISG)
+      timeout: 5           # seconds
+      retries: 3           # number of retry attempts
+      retry_delay: 1       # seconds between retries
+
+  # Example: Additional heat pump (disabled by default)
+  # - id: hp2
+  #   name: Secondary Heat Pump
+  #   location: Garage
+  #   model: example_model
+  #   enabled: false
+  #   modbus:
+  #     type: tcp
+  #     host: 192.168.1.101
+  #     port: 502
+  #     unit_id: 1
+  #     timeout: 5
+  #     retries: 3
+  #     retry_delay: 1
+
+  # Example: RTU connection over serial
+  # - id: hp3
+  #   name: Third Heat Pump
+  #   location: Workshop
+  #   model: example_model
+  #   enabled: false
+  #   modbus:
+  #     type: rtu
+  #     port: /dev/ttyUSB0  # Serial port
+  #     baudrate: 9600
+  #     bytesize: 8
+  #     parity: N  # N (none), E (even), O (odd)
+  #     stopbits: 1
+  #     unit_id: 1
+  #     timeout: 5
+  #     retries: 3
+  #     retry_delay: 1
