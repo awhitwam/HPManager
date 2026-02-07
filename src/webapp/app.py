@@ -4,15 +4,19 @@ Provides at-a-glance view of current heat pump status.
 """
 
 import os
+import subprocess
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException, Body
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from pydantic import ValidationError
 import yaml
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.query_api import QueryApi
+from .config_manager import get_config_manager
+from .schemas import HeatPumpConfig
 
 
 app = FastAPI(title="HPManager Dashboard", version="1.0.0")
@@ -217,7 +221,7 @@ async def get_heatpump(heat_pump_id: str):
     latest_data = get_latest_data(heat_pump_id)
 
     return {
-        "id": hp_id,
+        "id": heat_pump_id,
         "name": hp["name"],
         "location": hp["location"],
         "model": hp["model"],
@@ -225,6 +229,133 @@ async def get_heatpump(heat_pump_id: str):
         "cop": calculate_cop(latest_data),
         "timestamp": datetime.utcnow().isoformat(),
     }
+
+
+@app.get("/api/models", response_class=JSONResponse)
+async def get_models():
+    """API endpoint to get available heat pump models."""
+    try:
+        config_mgr = get_config_manager()
+        models = config_mgr.get_model_info()
+        return {"models": models}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load models: {str(e)}")
+
+
+@app.post("/api/heatpumps", response_class=JSONResponse, status_code=201)
+async def create_heatpump(heatpump: HeatPumpConfig):
+    """API endpoint to create a new heat pump."""
+    try:
+        config_mgr = get_config_manager()
+        config_mgr.create_heatpump(heatpump)
+
+        return {
+            "message": "Heat pump created successfully",
+            "heat_pump": heatpump.model_dump(),
+            "requires_restart": True
+        }
+    except ValueError as e:
+        # ID already exists or validation error
+        if "already exists" in str(e):
+            raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create heat pump: {str(e)}")
+
+
+@app.put("/api/heatpumps/{heat_pump_id}", response_class=JSONResponse)
+async def update_heatpump(heat_pump_id: str, heatpump: HeatPumpConfig):
+    """API endpoint to update an existing heat pump (full replacement)."""
+    try:
+        config_mgr = get_config_manager()
+        config_mgr.update_heatpump(heat_pump_id, heatpump)
+
+        return {
+            "message": "Heat pump updated successfully",
+            "heat_pump": heatpump.model_dump(),
+            "requires_restart": True
+        }
+    except ValueError as e:
+        if "not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        if "already exists" in str(e):
+            raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update heat pump: {str(e)}")
+
+
+@app.patch("/api/heatpumps/{heat_pump_id}", response_class=JSONResponse)
+async def patch_heatpump(heat_pump_id: str, updates: Dict[str, Any] = Body(...)):
+    """API endpoint to partially update an existing heat pump."""
+    try:
+        config_mgr = get_config_manager()
+        updated_hp = config_mgr.patch_heatpump(heat_pump_id, updates)
+
+        return {
+            "message": "Heat pump updated successfully",
+            "heat_pump": updated_hp.model_dump(),
+            "requires_restart": True
+        }
+    except ValueError as e:
+        if "not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Validation error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update heat pump: {str(e)}")
+
+
+@app.delete("/api/heatpumps/{heat_pump_id}", response_class=JSONResponse)
+async def delete_heatpump(heat_pump_id: str):
+    """API endpoint to delete a heat pump."""
+    try:
+        config_mgr = get_config_manager()
+        deleted_hp = config_mgr.delete_heatpump(heat_pump_id)
+
+        return {
+            "message": f"Heat pump '{deleted_hp.name}' deleted successfully",
+            "requires_restart": True
+        }
+    except ValueError as e:
+        if "not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete heat pump: {str(e)}")
+
+
+@app.post("/api/collector/restart", response_class=JSONResponse)
+async def restart_collector():
+    """API endpoint to restart the collector container."""
+    try:
+        result = subprocess.run(
+            ["docker", "restart", "hpm-collector"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        return {
+            "message": "Collector restarted successfully",
+            "status": "restarting"
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Restart operation timed out")
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to restart collector: {e.stderr}"
+        )
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=500,
+            detail="Docker command not found. Ensure Docker is installed in the container."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 
 @app.get("/health")
