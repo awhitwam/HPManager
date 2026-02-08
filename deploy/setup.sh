@@ -4,7 +4,7 @@ set -euo pipefail
 # =====================================================
 # HPManager - Proxmox LXC Deployment Script
 # Run as root inside a fresh Debian 12 LXC container
-# with nesting and keyctl features enabled.
+# with nesting feature enabled.
 #
 # Usage:
 #   bash deploy/setup.sh
@@ -229,6 +229,10 @@ update_heatpumps_config() {
     else
         warn "heatpumps.production.yml not found, using existing config"
     fi
+
+    # Ensure webapp container (UID 1000) can write config files
+    chown -R 1000:1000 "$INSTALL_DIR/config"
+    log "Set config directory ownership to UID 1000 (webapp)"
 
     log "HP1: ${HP1_HOST}:${HP1_PORT}"
     log "HP2: ${HP2_HOST}:${HP2_PORT}"

@@ -34,11 +34,10 @@ Deploy HPManager in a lightweight Proxmox LXC container with Docker. This gives 
 
 Select the container > **Options > Features:**
 - Enable **Nesting** (required for Docker)
-- Enable **keyctl** (required for overlay2 storage driver)
 
 Or via CLI:
 ```bash
-pct set 200 --features nesting=1,keyctl=1
+pct set 200 --features nesting=1
 ```
 
 ### Enable auto-start
@@ -55,7 +54,7 @@ pct create 200 local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst \
   --swap 512 \
   --rootfs local-lvm:32 \
   --net0 name=eth0,bridge=vmbr0,ip=192.168.8.50/24,gw=192.168.8.1 \
-  --features nesting=1,keyctl=1 \
+  --features nesting=1 \
   --onboot 1
 ```
 
@@ -222,10 +221,10 @@ Typical resource consumption on a quiet system:
 
 ### Docker won't start in LXC
 
-Ensure nesting and keyctl are enabled:
+Ensure nesting is enabled:
 ```bash
 # On the Proxmox host (not inside the LXC)
-pct set 200 --features nesting=1,keyctl=1
+pct set 200 --features nesting=1
 pct reboot 200
 ```
 

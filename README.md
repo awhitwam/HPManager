@@ -223,7 +223,7 @@ Refer to your heat pump's Modbus documentation for specific register addresses.
 For a production deployment on Proxmox, see the full guide: [docs/proxmox-deployment.md](docs/proxmox-deployment.md)
 
 Quick overview:
-1. Create a **privileged Debian 12 LXC** with nesting + keyctl enabled
+1. Create a **privileged Debian 12 LXC** with nesting enabled
 2. Clone the repo and run `bash deploy/setup.sh`
 3. The script installs Docker, generates secure credentials, configures direct LAN access to your heat pumps, and starts all services
 

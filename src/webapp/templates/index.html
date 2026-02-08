@@ -450,6 +450,12 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
+        .form-input[readonly] {
+            background: #f3f4f6;
+            color: #6b7280;
+            cursor: not-allowed;
+        }
+
         .form-input.error {
             border-color: #ef4444;
         }
@@ -1579,7 +1585,7 @@
             document.getElementById('form-modal-title').textContent = 'Add Heat Pump';
             document.getElementById('edit-mode').value = 'false';
             document.getElementById('hp-form').reset();
-            document.getElementById('hp-id').disabled = false;
+            document.getElementById('hp-id').readOnly = false;
             document.getElementById('hp-enabled').checked = true;
             document.getElementById('display-fields-section').style.display = 'none';
             closeManageModal();
@@ -1597,7 +1603,7 @@
             document.getElementById('edit-mode').value = 'true';
             document.getElementById('original-id').value = hpId;
             document.getElementById('hp-id').value = hp.id;
-            document.getElementById('hp-id').disabled = true;
+            document.getElementById('hp-id').readOnly = true;
             document.getElementById('hp-name').value = hp.name;
             document.getElementById('hp-location').value = hp.location;
             document.getElementById('hp-model').value = hp.model;
