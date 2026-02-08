@@ -86,6 +86,8 @@ services:
       - ./config:/app/config:rw
       - ./src:/app/src:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    group_add:
+      - "${DOCKER_GID:-999}"
     environment:
       - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-my-super-secret-auth-token}
       - INFLUXDB_URL=${INFLUXDB_URL:-http://influxdb:8086}

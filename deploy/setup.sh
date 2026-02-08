@@ -209,6 +209,9 @@ GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
 # Webapp
 CONFIG_DIR=/app/config
 WEBAPP_PORT=8080
+
+# Docker socket GID (for webapp to restart collector)
+DOCKER_GID=$(getent group docker | cut -d: -f3)
 EOF
 
     chmod 600 "$ENV_FILE"
