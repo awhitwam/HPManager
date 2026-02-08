@@ -11,17 +11,18 @@ services:
       - influxdb-config:/etc/influxdb2
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
-      - DOCKER_INFLUXDB_INIT_ORG=heatpump-monitoring
-      - DOCKER_INFLUXDB_INIT_BUCKET=heatpump-data
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-auth-token
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:-adminpassword}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-heatpump-monitoring}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-heatpump-data}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-my-super-secret-auth-token}
     healthcheck:
       test: ["CMD", "influx", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    restart: unless-stopped
     networks:
       - hpm-network
 
@@ -35,9 +36,10 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_INSTALL_PLUGINS=
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-my-super-secret-auth-token}
     depends_on:
       influxdb:
         condition: service_healthy
@@ -47,12 +49,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    restart: unless-stopped
     networks:
       - hpm-network
 
-  # NOTE: On Docker Desktop for Windows, containers cannot reach LAN devices
-  # directly. Heat pump addresses in heatpumps.yml use host.docker.internal
-  # with netsh port forwarding. See README for setup instructions.
+  # Configure heat pump addresses in config/heatpumps.yml
+  # See docs/proxmox-deployment.md for production setup
   collector:
     build:
       context: .
@@ -62,10 +64,10 @@ services:
       - ./config:/app/config:ro
       - ./src:/app/src:ro
     environment:
-      - INFLUXDB_TOKEN=my-super-secret-auth-token
-      - INFLUXDB_URL=http://influxdb:8086
-      - INFLUXDB_ORG=heatpump-monitoring
-      - INFLUXDB_BUCKET=heatpump-data
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-my-super-secret-auth-token}
+      - INFLUXDB_URL=${INFLUXDB_URL:-http://influxdb:8086}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-heatpump-monitoring}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-heatpump-data}
     depends_on:
       influxdb:
         condition: service_healthy
@@ -79,16 +81,16 @@ services:
       dockerfile: docker/Dockerfile.webapp
     container_name: hpm-webapp
     ports:
-      - "8000:8000"
+      - "${WEBAPP_PORT:-8080}:8000"
     volumes:
       - ./config:/app/config:rw
       - ./src:/app/src:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      - INFLUXDB_TOKEN=my-super-secret-auth-token
-      - INFLUXDB_URL=http://influxdb:8086
-      - INFLUXDB_ORG=heatpump-monitoring
-      - INFLUXDB_BUCKET=heatpump-data
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-my-super-secret-auth-token}
+      - INFLUXDB_URL=${INFLUXDB_URL:-http://influxdb:8086}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-heatpump-monitoring}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-heatpump-data}
       - CONFIG_DIR=/app/config
     depends_on:
       influxdb:

@@ -118,8 +118,12 @@ HPManager/
 │   ├── registers.yml     # Modbus register mappings
 │   ├── collector.yml     # Collector settings
 │   └── display.yml       # Dashboard display settings
+├── deploy/
+│   └── setup.sh          # Proxmox LXC deployment script
 ├── docker/
 │   └── Dockerfile.collector   # Collector container
+├── docs/
+│   └── proxmox-deployment.md  # Production deployment guide
 ├── grafana/
 │   ├── dashboards/       # Dashboard definitions
 │   └── provisioning/     # Grafana configuration
@@ -214,12 +218,20 @@ Refer to your heat pump's Modbus documentation for specific register addresses.
 4. Set up alerts for temperature or power anomalies
 5. Configure InfluxDB retention policies for long-term data management
 
+## Production Deployment (Proxmox)
+
+For a production deployment on Proxmox, see the full guide: [docs/proxmox-deployment.md](docs/proxmox-deployment.md)
+
+Quick overview:
+1. Create a **privileged Debian 12 LXC** with nesting + keyctl enabled
+2. Clone the repo and run `bash deploy/setup.sh`
+3. The script installs Docker, generates secure credentials, configures direct LAN access to your heat pumps, and starts all services
+
 ## Security Notes
 
-- Change default passwords in production
-- Use environment variables for sensitive tokens
+- The deployment script generates unique credentials automatically
+- Use environment variables for sensitive tokens (see `.env.production` template)
 - Restrict network access to Modbus interfaces
-- Enable authentication on Grafana
 - Regularly update dependencies
 
 ## Tested Hardware

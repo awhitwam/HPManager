@@ -11,6 +11,6 @@ datasources:
       defaultBucket: heatpump-data
       tlsSkipVerify: true
     secureJsonData:
-      token: my-super-secret-auth-token
+      token: $__env{INFLUXDB_TOKEN}
     editable: true
     isDefault: true
