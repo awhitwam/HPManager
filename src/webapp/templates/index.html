@@ -76,21 +76,20 @@
             border-radius: 10px;
             padding: 25px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s, box-shadow 0.2s;
         }
 
-        .heat-pump-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
-        }
 
         .hp-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
+            align-items: flex-start;
+            margin-bottom: 15px;
             padding-bottom: 15px;
             border-bottom: 2px solid #f0f0f0;
+        }
+
+        .hp-header-left {
+            flex: 0 0 auto;
         }
 
         .hp-name {
@@ -103,6 +102,47 @@
             font-size: 14px;
             color: #666;
             margin-top: 3px;
+        }
+
+        .hp-status-card {
+            flex: 1;
+            margin: 0 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px 14px;
+            min-width: 0;
+        }
+
+        .hp-status-card .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            font-size: 13px;
+        }
+
+        .hp-status-card .status-row + .status-row {
+            border-top: 1px solid #e9ecef;
+        }
+
+        .hp-status-card .status-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .hp-status-card .status-label.active {
+            color: #16a34a;
+        }
+
+        .hp-status-card .status-label.idle {
+            color: #9ca3af;
+        }
+
+        .hp-status-card .status-since {
+            color: #6b7280;
+            font-size: 12px;
+            margin-left: 10px;
+            white-space: nowrap;
         }
 
         .status-badge {
@@ -150,7 +190,7 @@
         }
 
         .metric-value {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: 700;
             color: #333;
         }
@@ -175,6 +215,34 @@
 
         .metric.cop {
             border-left-color: #10b981;
+        }
+
+        .metric.status {
+            border-left-color: #8b5cf6;
+        }
+
+        .status-flags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .status-flag {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-flag.active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-flag.idle {
+            background: #f3f4f6;
+            color: #9ca3af;
         }
 
         .no-data {
@@ -550,6 +618,86 @@
             font-size: 14px;
         }
 
+        /* Settings - Field Checklist */
+        .field-category {
+            margin-bottom: 15px;
+        }
+
+        .field-category-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .pump-tab {
+            padding: 8px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.15s;
+        }
+
+        .pump-tab:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .pump-tab.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .field-checkbox-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .field-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: #f8f9fa;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.15s;
+        }
+
+        .field-checkbox-item:hover {
+            background: #e9ecef;
+        }
+
+        .field-checkbox-item input[type="checkbox"] {
+            margin: 0;
+        }
+
+        /* Sparkline canvas */
+        .sparkline {
+            display: block;
+            margin-top: 8px;
+            width: 100%;
+            height: 44px;
+            border-radius: 4px;
+        }
+
+        /* Legacy status flag badges (kept for fault status) */
+        .status-flags .status-flag {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
         @media (max-width: 768px) {
             .heat-pumps-grid {
                 grid-template-columns: 1fr;
@@ -561,6 +709,10 @@
 
             .metric-large {
                 grid-column: span 1;
+            }
+
+            .field-checkbox-list {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -576,8 +728,11 @@
                 <p class="subtitle">Real-time heat pump monitoring</p>
             </div>
             <div class="header-right">
+                <button class="btn btn-secondary" onclick="openSettingsModal()">
+                    Settings
+                </button>
                 <button class="btn btn-primary" onclick="openManageModal()">
-                    ⚙️ Manage Heat Pumps
+                    Manage Heat Pumps
                 </button>
             </div>
         </header>
@@ -595,85 +750,129 @@
         <div class="heat-pumps-grid" id="heat-pumps-container">
             {% if heat_pumps %}
                 {% for hp in heat_pumps %}
-                <div class="heat-pump-card">
+                <div class="heat-pump-card" data-hp-card="{{ hp.id }}">
                     <div class="hp-header">
-                        <div>
+                        <div class="hp-header-left">
                             <div class="hp-name">{{ hp.name }}</div>
                             <div class="hp-location">📍 {{ hp.location }}</div>
+                            {% set m = hp.data.metrics or {} %}
+                            <div class="hp-header-mode" data-hp="{{ hp.id }}" style="font-size: 13px; color: #8b5cf6; font-weight: 600; margin-top: 4px;">{{ m.operating_mode|default('', true) }}</div>
                         </div>
-                        <div class="status-badge {% if hp.data.timestamp %}status-online{% else %}status-offline{% endif %}">
+                        <div class="hp-status-card" data-hp-status-card="{{ hp.id }}">
+                            <div class="status-row" data-flag="compressor_running">
+                                <span class="status-label {{ 'active' if m.compressor_running else 'idle' }}">Compressor {{ 'ON' if m.compressor_running else 'OFF' }}</span>
+                                <span class="status-since" data-flag-since="compressor_running"></span>
+                            </div>
+                            <div class="status-row" data-flag="hc1_pump" {% if not m.hc1_pump %}style="display:none"{% endif %}>
+                                <span class="status-label active">HC1 Pump</span>
+                                <span class="status-since" data-flag-since="hc1_pump"></span>
+                            </div>
+                            <div class="status-row" data-flag="hp_heating_mode" {% if not m.hp_heating_mode %}style="display:none"{% endif %}>
+                                <span class="status-label active">Heating</span>
+                                <span class="status-since" data-flag-since="hp_heating_mode"></span>
+                            </div>
+                            <div class="status-row" data-flag="hp_dhw_mode" {% if not m.hp_dhw_mode %}style="display:none"{% endif %}>
+                                <span class="status-label active">DHW</span>
+                                <span class="status-since" data-flag-since="hp_dhw_mode"></span>
+                            </div>
+                            <div class="status-row" data-flag="defrost_mode" {% if not m.defrost_mode %}style="display:none"{% endif %}>
+                                <span class="status-label active" style="color:#dc2626;">Defrost</span>
+                                <span class="status-since" data-flag-since="defrost_mode"></span>
+                            </div>
+                            <div class="status-row" data-flag="summer_mode" {% if not m.summer_mode %}style="display:none"{% endif %}>
+                                <span class="status-label active">Summer</span>
+                                <span class="status-since" data-flag-since="summer_mode"></span>
+                            </div>
+                            <div class="status-row" data-flag="cooling_mode" {% if not m.cooling_mode %}style="display:none"{% endif %}>
+                                <span class="status-label active">Cooling</span>
+                                <span class="status-since" data-flag-since="cooling_mode"></span>
+                            </div>
+                            <div class="status-row" data-flag="nhz_stages_running" {% if not m.nhz_stages_running %}style="display:none"{% endif %}>
+                                <span class="status-label active" style="color:#92400e;">NHZ Backup</span>
+                                <span class="status-since" data-flag-since="nhz_stages_running"></span>
+                            </div>
+                        </div>
+                        <div class="status-badge {% if hp.data.timestamp %}status-online{% else %}status-offline{% endif %}" data-hp-badge="{{ hp.id }}">
                             {% if hp.data.timestamp %}Online{% else %}Offline{% endif %}
                         </div>
                     </div>
 
                     {% if hp.data.metrics %}
+                    {# Field metadata for data-driven display #}
+                    {% set field_meta = {
+                        "outside_temperature": {"label": "Outside Temp", "css": "temp", "unit": "°C", "decimals": 1},
+                        "actual_temperature_hk1": {"label": "Flow Temp (HK1)", "css": "temp", "unit": "°C", "decimals": 1},
+                        "set_temperature_hk1": {"label": "Set Temp HK1", "css": "temp", "unit": "°C", "decimals": 1},
+                        "actual_return_temperature": {"label": "Return Temp", "css": "temp", "unit": "°C", "decimals": 1},
+                        "actual_buffer_temperature": {"label": "Buffer Temp", "css": "temp", "unit": "°C", "decimals": 1},
+                        "set_buffer_temperature": {"label": "Set Buffer Temp", "css": "temp", "unit": "°C", "decimals": 1},
+                        "actual_dhw_temperature": {"label": "DHW Temp", "css": "temp", "unit": "°C", "decimals": 1},
+                        "set_dhw_temperature": {"label": "Set DHW Temp", "css": "temp", "unit": "°C", "decimals": 1},
+                        "compressor_inlet_temperature": {"label": "Comp. Inlet Temp", "css": "temp", "unit": "°C", "decimals": 1},
+                        "hp_flow_temperature": {"label": "HP Flow Temp", "css": "temp", "unit": "°C", "decimals": 1},
+                        "hot_gas_temperature": {"label": "Hot Gas Temp", "css": "temp", "unit": "°C", "decimals": 1},
+                        "low_pressure": {"label": "Low Pressure", "css": "status", "unit": "bar", "decimals": 2},
+                        "mean_pressure": {"label": "Mean Pressure", "css": "status", "unit": "bar", "decimals": 2},
+                        "high_pressure": {"label": "High Pressure", "css": "status", "unit": "bar", "decimals": 2},
+                        "wp_water_flow_rate": {"label": "Water Flow", "css": "status", "unit": "l/min", "decimals": 1},
+                        "operating_mode": {"label": "Operating Mode", "css": "status", "unit": "", "decimals": 0, "is_text": true},
+                        "comfort_temperature_hk1": {"label": "Comfort Temp HK1", "css": "temp", "unit": "°C", "decimals": 1},
+                        "eco_temperature_hk1": {"label": "ECO Temp HK1", "css": "temp", "unit": "°C", "decimals": 1},
+                        "heating_curve_rise_hk1": {"label": "Heating Curve Rise", "css": "status", "unit": "", "decimals": 2},
+                        "comfort_temperature_dhw": {"label": "Comfort Temp DHW", "css": "temp", "unit": "°C", "decimals": 1},
+                        "eco_temperature_dhw": {"label": "ECO Temp DHW", "css": "temp", "unit": "°C", "decimals": 1},
+                        "inverter_power": {"label": "Inverter Power", "css": "power", "unit": "kW", "decimals": 2, "large": true},
+                        "heat_meter_heating_day": {"label": "Heat Heating (Day)", "css": "power", "unit": "kWh", "decimals": 0},
+                        "heat_meter_dhw_day": {"label": "Heat DHW (Day)", "css": "power", "unit": "kWh", "decimals": 0},
+                        "power_consumption_heating_day": {"label": "Power Heating (Day)", "css": "power", "unit": "kWh", "decimals": 0},
+                        "power_consumption_dhw_day": {"label": "Power DHW (Day)", "css": "power", "unit": "kWh", "decimals": 0},
+                    } %}
                     <div class="metrics-grid">
-                        <!-- Temperatures -->
-                        <div class="metric temp">
-                            <div class="metric-label">Outside Temp</div>
-                            <div class="metric-value">
-                                {% if hp.data.metrics.outside_temperature is defined %}
-                                    {{ "%.1f"|format(hp.data.metrics.outside_temperature) }}
-                                    <span class="metric-unit">°C</span>
-                                {% else %}
-                                    <span style="font-size: 16px; color: #999;">N/A</span>
-                                {% endif %}
-                            </div>
-                        </div>
+                        {% for field_name in hp.visible_fields %}
+                            {% if field_name in field_meta %}
+                                {% set meta = field_meta[field_name] %}
+                                <div class="metric {{ meta.css }}{% if meta.large is defined and meta.large %} metric-large{% endif %}">
+                                    <div class="metric-label">{{ meta.label }}</div>
+                                    <div class="metric-value" data-hp="{{ hp.id }}" data-field="{{ field_name }}">
+                                        {% if hp.data.metrics[field_name] is defined %}
+                                            {% if meta.is_text is defined and meta.is_text %}
+                                                <span style="font-size: 16px;">{{ hp.data.metrics[field_name] }}</span>
+                                            {% elif meta.decimals == 0 %}
+                                                {{ hp.data.metrics[field_name]|int }}
+                                                {% if meta.unit %}<span class="metric-unit">{{ meta.unit }}</span>{% endif %}
+                                            {% elif meta.decimals == 1 %}
+                                                {{ "%.1f"|format(hp.data.metrics[field_name]) }}
+                                                <span class="metric-unit">{{ meta.unit }}</span>
+                                            {% else %}
+                                                {{ "%.2f"|format(hp.data.metrics[field_name]) }}
+                                                <span class="metric-unit">{{ meta.unit }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span style="font-size: 16px; color: #999;">N/A</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if meta.is_text is not defined or not meta.is_text %}
+                                    <canvas class="sparkline" data-hp="{{ hp.id }}" data-field="{{ field_name }}"
+                                            width="240" height="44"></canvas>
+                                    {% endif %}
+                                </div>
+                            {% elif field_name == "operating_status" %}
+                                {# Operating status flags now shown in header — skip here #}
+                            {% elif field_name == "fault_status" %}
+                                {# Special: fault status shown as alert when fault detected #}
+                                <div class="metric status metric-large" data-hp-fault="{{ hp.id }}" style="border: 2px solid #ef4444;{% if not (hp.data.metrics.fault_status is defined and hp.data.metrics.fault_status == 'Fault') %} display:none;{% endif %}">
+                                    <div class="metric-label" style="color: #991b1b;">Fault Status</div>
+                                    <div class="status-flags">
+                                        <span class="status-flag active" style="background:#fee2e2;color:#991b1b;">FAULT DETECTED</span>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
 
-                        <div class="metric temp">
-                            <div class="metric-label">Flow Temp</div>
-                            <div class="metric-value">
-                                {% if hp.data.metrics.actual_flow_temperature is defined %}
-                                    {{ "%.1f"|format(hp.data.metrics.actual_flow_temperature) }}
-                                    <span class="metric-unit">°C</span>
-                                {% else %}
-                                    <span style="font-size: 16px; color: #999;">N/A</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div class="metric temp">
-                            <div class="metric-label">Return Temp</div>
-                            <div class="metric-value">
-                                {% if hp.data.metrics.actual_return_temperature is defined %}
-                                    {{ "%.1f"|format(hp.data.metrics.actual_return_temperature) }}
-                                    <span class="metric-unit">°C</span>
-                                {% else %}
-                                    <span style="font-size: 16px; color: #999;">N/A</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div class="metric temp">
-                            <div class="metric-label">DHW Temp</div>
-                            <div class="metric-value">
-                                {% if hp.data.metrics.actual_dhw_temperature is defined %}
-                                    {{ "%.1f"|format(hp.data.metrics.actual_dhw_temperature) }}
-                                    <span class="metric-unit">°C</span>
-                                {% else %}
-                                    <span style="font-size: 16px; color: #999;">N/A</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- Power -->
-                        <div class="metric power metric-large">
-                            <div class="metric-label">⚡ Inverter Power</div>
-                            <div class="metric-value">
-                                {% if hp.data.metrics.inverter_power is defined %}
-                                    {{ "%.2f"|format(hp.data.metrics.inverter_power) }}
-                                    <span class="metric-unit">kW</span>
-                                {% else %}
-                                    <span style="font-size: 16px; color: #999;">N/A</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- COP (if available) -->
+                        {# COP always shown if available #}
                         {% if hp.cop %}
                         <div class="metric cop metric-large">
-                            <div class="metric-label">🎯 COP (Coefficient of Performance)</div>
+                            <div class="metric-label">COP (Coefficient of Performance)</div>
                             <div class="metric-value">
                                 {{ "%.2f"|format(hp.cop) }}
                             </div>
@@ -703,11 +902,12 @@
         </div>
 
         <div style="text-align: center;">
-            <button class="refresh-button" onclick="location.reload()">🔄 Refresh Now</button>
+            <button class="refresh-button" onclick="refreshDashboard()">🔄 Refresh Now</button>
         </div>
 
         <footer>
             <p>HPManager v1.0 | Powered by InfluxDB & Grafana</p>
+            <p style="margin-top: 4px; font-size: 11px; opacity: 0.7;">&copy; A Whitwam 2026</p>
         </footer>
     </div>
 
@@ -816,6 +1016,16 @@
                         </div>
                     </div>
 
+                    <div class="form-section" id="display-fields-section" style="display: none;">
+                        <div class="form-section-title">Displayed Fields</div>
+                        <div class="form-help" style="margin-bottom: 10px;">
+                            Choose which fields appear on this heat pump's dashboard card.
+                        </div>
+                        <div id="hp-fields-checklist">
+                            <div style="text-align: center; padding: 20px; color: #999;">Loading fields...</div>
+                        </div>
+                    </div>
+
                     <input type="hidden" id="edit-mode" value="false">
                     <input type="hidden" id="original-id" value="">
                 </form>
@@ -847,6 +1057,62 @@
         </div>
     </div>
 
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <div class="modal-title">Settings</div>
+                <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Collector Settings -->
+                <div class="form-group">
+                    <label class="form-label" for="setting-poll-interval">
+                        Poll Interval (seconds)
+                    </label>
+                    <input type="number" id="setting-poll-interval" class="form-input"
+                           min="5" max="120" step="1" value="10">
+                    <div class="form-help">
+                        How often the collector reads data from heat pumps.
+                        Changing this requires a collector restart.
+                    </div>
+                </div>
+
+                <!-- Display Settings -->
+                <div class="form-section">
+                    <div class="form-section-title">Display Settings</div>
+                    <div class="form-group">
+                        <label class="form-label" for="setting-refresh-interval">
+                            Screen Refresh Rate (seconds)
+                        </label>
+                        <input type="number" id="setting-refresh-interval" class="form-input"
+                               min="5" max="120" step="1" value="10">
+                        <div class="form-help">
+                            How often the dashboard page refreshes to show new data.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sparkline Settings -->
+                <div class="form-group" style="margin-top: 15px;">
+                    <label class="form-label" for="setting-sparkline-minutes">
+                        Sparkline Time Window (minutes)
+                    </label>
+                    <input type="number" id="setting-sparkline-minutes" class="form-input"
+                           min="5" max="480" step="5" value="30">
+                    <div class="form-help">
+                        How many minutes of history to show in the sparkline graphs next to each metric.
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global state
         let availableModels = [];
@@ -859,23 +1125,346 @@
             loadModels();
             checkRestartNeeded();
             startAutoRefresh();
+            loadSparklines();
+            loadStateChanges();
         });
+
+        // Server-side settings
+        const SERVER_REFRESH_INTERVAL = {{ refresh_interval }};
+        const SPARKLINE_MINUTES = {{ sparkline_minutes }};
+
+        // Field metadata for JS-side formatting (mirrors Jinja2 field_meta)
+        const FIELD_META = {
+            outside_temperature: { unit: '°C', decimals: 1 },
+            actual_temperature_hk1: { unit: '°C', decimals: 1 },
+            set_temperature_hk1: { unit: '°C', decimals: 1 },
+            actual_return_temperature: { unit: '°C', decimals: 1 },
+            actual_buffer_temperature: { unit: '°C', decimals: 1 },
+            set_buffer_temperature: { unit: '°C', decimals: 1 },
+            actual_dhw_temperature: { unit: '°C', decimals: 1 },
+            set_dhw_temperature: { unit: '°C', decimals: 1 },
+            compressor_inlet_temperature: { unit: '°C', decimals: 1 },
+            hp_flow_temperature: { unit: '°C', decimals: 1 },
+            hot_gas_temperature: { unit: '°C', decimals: 1 },
+            low_pressure: { unit: 'bar', decimals: 2 },
+            mean_pressure: { unit: 'bar', decimals: 2 },
+            high_pressure: { unit: 'bar', decimals: 2 },
+            wp_water_flow_rate: { unit: 'l/min', decimals: 1 },
+            operating_mode: { unit: '', decimals: 0, is_text: true },
+            comfort_temperature_hk1: { unit: '°C', decimals: 1 },
+            eco_temperature_hk1: { unit: '°C', decimals: 1 },
+            heating_curve_rise_hk1: { unit: '', decimals: 2 },
+            comfort_temperature_dhw: { unit: '°C', decimals: 1 },
+            eco_temperature_dhw: { unit: '°C', decimals: 1 },
+            inverter_power: { unit: 'kW', decimals: 2 },
+            heat_meter_heating_day: { unit: 'kWh', decimals: 0 },
+            heat_meter_dhw_day: { unit: 'kWh', decimals: 0 },
+            power_consumption_heating_day: { unit: 'kWh', decimals: 0 },
+            power_consumption_dhw_day: { unit: 'kWh', decimals: 0 },
+        };
+
+        // Status flags that appear in the header
+        const STATUS_FLAGS = [
+            { key: 'compressor_running', label_on: 'Compressor ON', label_off: 'Compressor OFF', always_show: true },
+            { key: 'hp_heating_mode', label_on: 'Heating' },
+            { key: 'hp_dhw_mode', label_on: 'DHW' },
+            { key: 'hc1_pump', label_on: 'HC1 Pump' },
+            { key: 'defrost_mode', label_on: 'Defrost' },
+            { key: 'summer_mode', label_on: 'Summer' },
+            { key: 'cooling_mode', label_on: 'Cooling' },
+            { key: 'nhz_stages_running', label_on: 'NHZ Backup' },
+        ];
 
         // Auto-refresh management
         function startAutoRefresh() {
-            // Don't auto-refresh if any modal is open
             autoRefreshInterval = setInterval(() => {
                 const anyModalOpen = document.querySelector('.modal-overlay.show');
                 if (!anyModalOpen) {
-                    location.reload();
+                    refreshDashboard();
                 }
-            }, 10000);
+            }, SERVER_REFRESH_INTERVAL * 1000);
         }
 
         function stopAutoRefresh() {
             if (autoRefreshInterval) {
                 clearInterval(autoRefreshInterval);
             }
+        }
+
+        // AJAX dashboard refresh — updates values + sparklines without page reload
+        async function refreshDashboard() {
+            try {
+                const response = await fetch('/api/heatpumps');
+                const data = await response.json();
+                const pumps = data.heat_pumps || [];
+
+                for (const hp of pumps) {
+                    const metrics = (hp.data && hp.data.metrics) || {};
+                    const hasTimestamp = hp.data && hp.data.timestamp;
+
+                    // Update online/offline badge
+                    const badge = document.querySelector(`[data-hp-badge="${hp.id}"]`);
+                    if (badge) {
+                        badge.textContent = hasTimestamp ? 'Online' : 'Offline';
+                        badge.className = 'status-badge ' + (hasTimestamp ? 'status-online' : 'status-offline');
+                    }
+
+                    // Update operating mode in header
+                    const modeEl = document.querySelector(`.hp-header-mode[data-hp="${hp.id}"]`);
+                    if (modeEl) {
+                        modeEl.textContent = metrics.operating_mode || '';
+                    }
+
+                    // Update status card rows
+                    const statusCard = document.querySelector(`[data-hp-status-card="${hp.id}"]`);
+                    if (statusCard) {
+                        for (const flag of STATUS_FLAGS) {
+                            const row = statusCard.querySelector(`[data-flag="${flag.key}"]`);
+                            if (!row) continue;
+                            const val = !!metrics[flag.key];
+                            const labelEl = row.querySelector('.status-label');
+                            if (flag.always_show) {
+                                row.style.display = '';
+                                if (labelEl) {
+                                    labelEl.className = 'status-label ' + (val ? 'active' : 'idle');
+                                    labelEl.textContent = val ? flag.label_on : flag.label_off;
+                                }
+                            } else {
+                                row.style.display = val ? '' : 'none';
+                                if (labelEl) {
+                                    labelEl.className = 'status-label ' + (val ? 'active' : 'idle');
+                                }
+                            }
+                        }
+                    }
+
+                    // Update metric values
+                    const valueEls = document.querySelectorAll(`.metric-value[data-hp="${hp.id}"]`);
+                    for (const el of valueEls) {
+                        const field = el.dataset.field;
+                        const meta = FIELD_META[field];
+                        if (!meta) continue;
+
+                        const val = metrics[field];
+                        if (val === undefined || val === null) {
+                            el.innerHTML = '<span style="font-size: 16px; color: #999;">N/A</span>';
+                        } else if (meta.is_text) {
+                            el.innerHTML = `<span style="font-size: 16px;">${val}</span>`;
+                        } else {
+                            const formatted = meta.decimals === 0
+                                ? Math.round(val)
+                                : Number(val).toFixed(meta.decimals);
+                            const unitHtml = meta.unit
+                                ? `<span class="metric-unit">${meta.unit}</span>`
+                                : '';
+                            el.innerHTML = `${formatted} ${unitHtml}`;
+                        }
+                    }
+
+                    // Update fault status
+                    const faultEl = document.querySelector(`[data-hp-fault="${hp.id}"]`);
+                    if (faultEl) {
+                        faultEl.style.display = (metrics.fault_status === 'Fault') ? '' : 'none';
+                    }
+                }
+
+                // Refresh sparklines and state change timestamps
+                await Promise.all([loadSparklines(), loadStateChanges()]);
+
+            } catch (err) {
+                console.error('Dashboard refresh failed:', err);
+            }
+        }
+
+        // --- State change timestamps ---
+
+        function formatSinceTime(isoString) {
+            const d = new Date(isoString);
+            const now = new Date();
+            const diffMs = now - d;
+            const diffMins = Math.floor(diffMs / 60000);
+            const hh = d.getHours().toString().padStart(2, '0');
+            const mm = d.getMinutes().toString().padStart(2, '0');
+
+            // If more than 24h ago, show date too
+            if (diffMins > 1440) {
+                const dd = d.getDate().toString().padStart(2, '0');
+                const mo = (d.getMonth() + 1).toString().padStart(2, '0');
+                return `${dd}/${mo} ${hh}:${mm}`;
+            }
+            return `${hh}:${mm}`;
+        }
+
+        async function loadStateChanges() {
+            // Find all heat pump cards
+            const cards = document.querySelectorAll('[data-hp-card]');
+            for (const card of cards) {
+                const hpId = card.dataset.hpCard;
+                try {
+                    const res = await fetch(`/api/heatpumps/${hpId}/state-changes`);
+                    const data = await res.json();
+                    updateStateChangeTimes(hpId, data.fields || {});
+                } catch (err) {
+                    console.error(`Failed to load state changes for ${hpId}:`, err);
+                }
+            }
+        }
+
+        function updateStateChangeTimes(hpId, fields) {
+            const statusCard = document.querySelector(`[data-hp-status-card="${hpId}"]`);
+            if (!statusCard) return;
+
+            for (const [fieldName, info] of Object.entries(fields)) {
+                const sinceEl = statusCard.querySelector(`[data-flag-since="${fieldName}"]`);
+                if (sinceEl && info.since) {
+                    sinceEl.textContent = `since ${formatSinceTime(info.since)}`;
+                }
+            }
+        }
+
+        // --- Sparkline rendering ---
+
+        // Color map for sparkline lines based on CSS class
+        const SPARKLINE_COLORS = {
+            temp: { line: '#ef4444', fill: 'rgba(239,68,68,0.10)' },
+            power: { line: '#f59e0b', fill: 'rgba(245,158,11,0.10)' },
+            status: { line: '#8b5cf6', fill: 'rgba(139,92,246,0.10)' },
+            cop: { line: '#10b981', fill: 'rgba(16,185,129,0.10)' },
+            default: { line: '#667eea', fill: 'rgba(102,126,234,0.10)' },
+        };
+
+        function getSparklineColor(canvas) {
+            const metricDiv = canvas.closest('.metric');
+            if (!metricDiv) return SPARKLINE_COLORS.default;
+            for (const cls of ['temp', 'power', 'cop', 'status']) {
+                if (metricDiv.classList.contains(cls)) return SPARKLINE_COLORS[cls];
+            }
+            return SPARKLINE_COLORS.default;
+        }
+
+        function drawSparkline(canvas, dataPoints, colors) {
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            const timeAxisHeight = 16; // space for time labels at bottom
+            const chartH = h - timeAxisHeight;
+
+            // Set canvas resolution for sharp rendering
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            ctx.scale(dpr, dpr);
+
+            if (!dataPoints || dataPoints.length < 2) {
+                // No data — draw flat dashed line
+                ctx.strokeStyle = '#ddd';
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(0, chartH / 2);
+                ctx.lineTo(w, chartH / 2);
+                ctx.stroke();
+                return;
+            }
+
+            const values = dataPoints.map(p => p.value);
+            const minVal = Math.min(...values);
+            const maxVal = Math.max(...values);
+            const range = maxVal - minVal || 1;
+            const pad = 3; // vertical padding
+
+            // Map data points to canvas coords
+            const points = dataPoints.map((p, i) => ({
+                x: (i / (dataPoints.length - 1)) * w,
+                y: pad + ((maxVal - p.value) / range) * (chartH - pad * 2),
+            }));
+
+            // Fill gradient under line
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.lineTo(points[points.length - 1].x, chartH);
+            ctx.lineTo(points[0].x, chartH);
+            ctx.closePath();
+            ctx.fillStyle = colors.fill;
+            ctx.fill();
+
+            // Draw line
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.strokeStyle = colors.line;
+            ctx.lineWidth = 1.5;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+
+            // Draw min/max value labels
+            ctx.fillStyle = '#999';
+            ctx.font = '9px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(maxVal.toFixed(1), w - 2, 9);
+            ctx.fillText(minVal.toFixed(1), w - 2, chartH - 2);
+
+            // Draw time labels on x-axis
+            ctx.fillStyle = '#666';
+            ctx.font = '10px sans-serif';
+            const timeY = h - 1;
+
+            // Start time (left)
+            const startTime = new Date(dataPoints[0].time);
+            ctx.textAlign = 'left';
+            ctx.fillText(formatTime(startTime), 1, timeY);
+
+            // End time (right)
+            const endTime = new Date(dataPoints[dataPoints.length - 1].time);
+            ctx.textAlign = 'right';
+            ctx.fillText(formatTime(endTime), w - 1, timeY);
+
+            // Mid time (center)
+            const midIdx = Math.floor(dataPoints.length / 2);
+            const midTime = new Date(dataPoints[midIdx].time);
+            ctx.textAlign = 'center';
+            ctx.fillText(formatTime(midTime), w / 2, timeY);
+        }
+
+        function formatTime(date) {
+            return date.getHours().toString().padStart(2, '0') + ':' +
+                   date.getMinutes().toString().padStart(2, '0');
+        }
+
+        async function loadSparklines() {
+            const canvases = document.querySelectorAll('canvas.sparkline');
+            if (canvases.length === 0) return;
+
+            // Group canvases by heat pump ID
+            const byPump = {};
+            canvases.forEach(canvas => {
+                const hpId = canvas.dataset.hp;
+                if (!byPump[hpId]) byPump[hpId] = [];
+                byPump[hpId].push(canvas);
+            });
+
+            // Fetch history for each pump (in parallel)
+            const fetches = Object.keys(byPump).map(async hpId => {
+                try {
+                    const res = await fetch(`/api/heatpumps/${hpId}/history?minutes=${SPARKLINE_MINUTES}`);
+                    const data = await res.json();
+
+                    byPump[hpId].forEach(canvas => {
+                        const field = canvas.dataset.field;
+                        const points = (data.fields || {})[field] || [];
+                        const colors = getSparklineColor(canvas);
+                        drawSparkline(canvas, points, colors);
+                    });
+                } catch (err) {
+                    console.error(`Failed to load sparklines for ${hpId}:`, err);
+                }
+            });
+
+            await Promise.all(fetches);
         }
 
         // Check if restart is needed (from localStorage)
@@ -940,51 +1529,46 @@
         }
 
         async function loadHeatPumpsFromConfig() {
-            // Since we can't directly read YAML from frontend, we'll load the current config
-            // by making a request to create a config endpoint or parsing from the page
-            // For now, let's create a simple list from what's visible
             const list = document.getElementById('hp-manage-list');
             list.innerHTML = '<li style="text-align: center; padding: 20px; color: #999;">Loading configuration...</li>';
 
-            // We need to add a GET endpoint that returns raw config
-            // For now, show a placeholder
-            setTimeout(() => {
+            try {
+                const response = await fetch('/api/heatpumps');
+                const data = await response.json();
+                allHeatPumps = data.heat_pumps || [];
                 renderHeatPumpList();
-            }, 500);
+            } catch (error) {
+                console.error('Failed to load heat pumps:', error);
+                list.innerHTML = '<li style="text-align: center; padding: 20px; color: #999;">Failed to load configuration</li>';
+            }
         }
 
         function renderHeatPumpList() {
             const list = document.getElementById('hp-manage-list');
 
-            // Extract heat pump data from the page
-            const hpCards = document.querySelectorAll('.heat-pump-card');
-            if (hpCards.length === 0 || hpCards[0].querySelector('.no-data')) {
+            if (allHeatPumps.length === 0) {
                 list.innerHTML = '<li style="text-align: center; padding: 20px; color: #999;">No heat pumps configured</li>';
                 return;
             }
 
             list.innerHTML = '';
-            hpCards.forEach((card, index) => {
-                const name = card.querySelector('.hp-name')?.textContent || 'Unknown';
-                const location = card.querySelector('.hp-location')?.textContent.replace('📍 ', '') || 'Unknown';
-                const statusBadge = card.querySelector('.status-badge');
-                const status = statusBadge?.textContent || 'Unknown';
-
-                // Try to extract ID from card data
-                const hpId = `hp${index + 1}`; // Fallback
+            allHeatPumps.forEach(hp => {
+                const hasData = hp.data && hp.data.timestamp;
+                const status = hasData ? 'Online' : 'Offline';
+                const statusClass = hasData ? 'color: #10b981' : 'color: #ef4444';
 
                 const li = document.createElement('li');
                 li.className = 'hp-list-item';
                 li.innerHTML = `
                     <div class="hp-list-info">
-                        <div class="hp-list-name">${name}</div>
+                        <div class="hp-list-name">${hp.name}</div>
                         <div class="hp-list-details">
-                            📍 ${location} • ID: ${hpId} • Status: ${status}
+                            📍 ${hp.location} • ID: ${hp.id} • Model: ${hp.model} • <span style="${statusClass}">${status}</span>
                         </div>
                     </div>
                     <div class="hp-list-actions">
-                        <button class="btn btn-primary btn-small" onclick="openEditModal('${hpId}')">Edit</button>
-                        <button class="btn btn-danger btn-small" onclick="openDeleteModal('${hpId}', '${name}')">Delete</button>
+                        <button class="btn btn-primary btn-small" onclick="openEditModal('${hp.id}')">Edit</button>
+                        <button class="btn btn-danger btn-small" onclick="openDeleteModal('${hp.id}', '${hp.name}')">Delete</button>
                     </div>
                 `;
                 list.appendChild(li);
@@ -997,21 +1581,107 @@
             document.getElementById('hp-form').reset();
             document.getElementById('hp-id').disabled = false;
             document.getElementById('hp-enabled').checked = true;
+            document.getElementById('display-fields-section').style.display = 'none';
             closeManageModal();
             document.getElementById('form-modal').classList.add('show');
         }
 
-        function openEditModal(hpId) {
-            // In a real implementation, we'd fetch the heat pump data
-            // For now, show a message
-            showToast('Edit functionality requires backend integration', 'warning');
-            // document.getElementById('form-modal-title').textContent = 'Edit Heat Pump';
-            // document.getElementById('edit-mode').value = 'true';
-            // document.getElementById('original-id').value = hpId;
-            // document.getElementById('hp-id').disabled = true;
-            // ... populate form fields ...
-            // closeManageModal();
-            // document.getElementById('form-modal').classList.add('show');
+        async function openEditModal(hpId) {
+            const hp = allHeatPumps.find(h => h.id === hpId);
+            if (!hp) {
+                showToast('Heat pump not found', 'error');
+                return;
+            }
+
+            document.getElementById('form-modal-title').textContent = 'Edit Heat Pump';
+            document.getElementById('edit-mode').value = 'true';
+            document.getElementById('original-id').value = hpId;
+            document.getElementById('hp-id').value = hp.id;
+            document.getElementById('hp-id').disabled = true;
+            document.getElementById('hp-name').value = hp.name;
+            document.getElementById('hp-location').value = hp.location;
+            document.getElementById('hp-model').value = hp.model;
+            document.getElementById('hp-enabled').checked = hp.enabled !== false;
+
+            // Populate modbus fields from allHeatPumps data (includes modbus config)
+            const modbus = hp.modbus || {};
+            document.getElementById('hp-host').value = modbus.host || '';
+            document.getElementById('hp-port').value = modbus.port || 502;
+            document.getElementById('hp-unit-id').value = modbus.unit_id || 1;
+            document.getElementById('hp-timeout').value = modbus.timeout || 5.0;
+            document.getElementById('hp-retries').value = modbus.retries || 3;
+            document.getElementById('hp-retry-delay').value = modbus.retry_delay || 1.0;
+
+            // Load and display field checklist for this pump
+            document.getElementById('display-fields-section').style.display = '';
+            await loadFieldsForEditModal(hp);
+
+            closeManageModal();
+            document.getElementById('form-modal').classList.add('show');
+        }
+
+        // Displayed fields in edit modal
+        let editModalFields = [];  // register fields loaded for the edit modal
+
+        async function loadFieldsForEditModal(hp) {
+            const container = document.getElementById('hp-fields-checklist');
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">Loading fields...</div>';
+
+            try {
+                // Load register fields and current visible fields in parallel
+                const [regRes, settingsRes] = await Promise.all([
+                    fetch(`/api/registers/${hp.model}`),
+                    fetch('/api/settings'),
+                ]);
+                const regData = await regRes.json();
+                const settings = await settingsRes.json();
+
+                editModalFields = regData.fields || [];
+                const defaultFields = {{ DEFAULT_VISIBLE_FIELDS | tojson }};
+                const vf = (settings.display.visible_fields || {})[hp.id] || defaultFields;
+
+                buildEditFieldChecklist(editModalFields, vf);
+            } catch (err) {
+                console.error('Failed to load fields for edit modal:', err);
+                container.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">Failed to load fields</div>';
+            }
+        }
+
+        function buildEditFieldChecklist(fields, visibleFields) {
+            const container = document.getElementById('hp-fields-checklist');
+            container.innerHTML = '';
+
+            const categories = {};
+            fields.forEach(f => {
+                if (!categories[f.category]) categories[f.category] = [];
+                categories[f.category].push(f);
+            });
+
+            const order = ['Temperatures', 'Pressures', 'Flow', 'Energy', 'Status', 'Configuration'];
+            for (const cat of order) {
+                const catFields = categories[cat];
+                if (!catFields || catFields.length === 0) continue;
+
+                const div = document.createElement('div');
+                div.className = 'field-category';
+                div.innerHTML = `<div class="field-category-title">${cat}</div>`;
+
+                const list = document.createElement('div');
+                list.className = 'field-checkbox-list';
+                catFields.forEach(f => {
+                    const checked = visibleFields.includes(f.name);
+                    const label = document.createElement('label');
+                    label.className = 'field-checkbox-item';
+                    label.innerHTML = `
+                        <input type="checkbox" name="hp_visible_field"
+                               value="${f.name}" ${checked ? 'checked' : ''}>
+                        <span>${f.description}</span>
+                    `;
+                    list.appendChild(label);
+                });
+                div.appendChild(list);
+                container.appendChild(div);
+            }
         }
 
         function closeFormModal() {
@@ -1070,12 +1740,43 @@
                     throw new Error(data.detail || 'Failed to save heat pump');
                 }
 
+                // If editing, also save the visible fields for this pump
+                if (editMode) {
+                    const checkedFields = Array.from(
+                        document.querySelectorAll('input[name="hp_visible_field"]:checked')
+                    ).map(cb => cb.value);
+
+                    if (checkedFields.length > 0) {
+                        try {
+                            const settingsRes = await fetch('/api/settings');
+                            const currentSettings = await settingsRes.json();
+                            const visibleFields = currentSettings.display.visible_fields || {};
+                            visibleFields[heatPump.id || originalId] = checkedFields;
+
+                            await fetch('/api/settings', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    collector: currentSettings.collector,
+                                    display: {
+                                        refresh_interval: currentSettings.display.refresh_interval,
+                                        sparkline_minutes: currentSettings.display.sparkline_minutes || 30,
+                                        visible_fields: visibleFields,
+                                    }
+                                })
+                            });
+                        } catch (e) {
+                            console.error('Failed to save display fields:', e);
+                        }
+                    }
+                }
+
                 // Success
                 showToast(editMode ? 'Heat pump updated successfully' : 'Heat pump created successfully', 'success');
                 localStorage.setItem('requiresRestart', 'true');
                 closeFormModal();
 
-                // Reload page after short delay
+                // Reload page after short delay to apply field changes
                 setTimeout(() => location.reload(), 1000);
 
             } catch (error) {
@@ -1199,6 +1900,111 @@
             setTimeout(() => {
                 toast.remove();
             }, 5000);
+        }
+
+        // Settings modal management
+
+        async function openSettingsModal() {
+            stopAutoRefresh();
+
+            try {
+                const settingsRes = await fetch('/api/settings');
+                const settings = await settingsRes.json();
+
+                document.getElementById('setting-poll-interval').value = settings.collector.poll_interval;
+                document.getElementById('setting-refresh-interval').value = settings.display.refresh_interval;
+                document.getElementById('setting-sparkline-minutes').value = settings.display.sparkline_minutes || 30;
+
+                document.getElementById('settings-modal').classList.add('show');
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+                showToast('Failed to load settings', 'error');
+                startAutoRefresh();
+            }
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('show');
+            startAutoRefresh();
+        }
+
+        async function saveSettings() {
+            const saveBtn = document.getElementById('settings-save-btn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = 'Saving... <span class="loading"></span>';
+
+            try {
+                const pollInterval = parseFloat(
+                    document.getElementById('setting-poll-interval').value
+                );
+                const refreshInterval = parseInt(
+                    document.getElementById('setting-refresh-interval').value
+                );
+                const sparklineMinutes = parseInt(
+                    document.getElementById('setting-sparkline-minutes').value
+                );
+
+                // Validate
+                if (pollInterval < 5 || pollInterval > 120) {
+                    showToast('Poll interval must be between 5 and 120 seconds', 'warning');
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save';
+                    return;
+                }
+                if (refreshInterval < 5 || refreshInterval > 120) {
+                    showToast('Refresh rate must be between 5 and 120 seconds', 'warning');
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save';
+                    return;
+                }
+                if (sparklineMinutes < 5 || sparklineMinutes > 480) {
+                    showToast('Sparkline time window must be between 5 and 480 minutes', 'warning');
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save';
+                    return;
+                }
+
+                // Load current settings to preserve visible_fields
+                const currentRes = await fetch('/api/settings');
+                const currentSettings = await currentRes.json();
+
+                // Save to server (preserve existing visible_fields)
+                const response = await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        collector: { poll_interval: pollInterval },
+                        display: {
+                            refresh_interval: refreshInterval,
+                            sparkline_minutes: sparklineMinutes,
+                            visible_fields: currentSettings.display.visible_fields || {},
+                        }
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to save settings');
+                }
+
+                if (data.requires_restart) {
+                    localStorage.setItem('requiresRestart', 'true');
+                }
+
+                showToast('Settings saved successfully', 'success');
+                closeSettingsModal();
+
+                // Reload to apply new refresh interval / sparkline window
+                setTimeout(() => location.reload(), 1000);
+
+            } catch (error) {
+                console.error('Save settings error:', error);
+                showToast(error.message, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save';
+            }
         }
 
         // Close modals on overlay click

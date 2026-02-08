@@ -28,6 +28,7 @@ class RegisterConfig:
         self.scale = config.get("scale", 1.0)
         self.description = config.get("description", "")
         self.enum_values = config.get("enum_values", {})
+        self.bitmap_fields = config.get("bitmap_fields", {})
 
     def __repr__(self):
         return f"RegisterConfig(name={self.name}, address={self.address}, type={self.data_type})"
@@ -133,9 +134,27 @@ class HeatPump:
             logger.error(f"Error reading {metric_name} from '{self.name}': {e}")
             return None
 
+    def decode_bitmap(self, register: RegisterConfig, raw_value: int) -> Dict[str, bool]:
+        """
+        Decode a bitmap register into individual boolean fields.
+
+        Args:
+            register: Register configuration with bitmap_fields
+            raw_value: Raw integer value from Modbus
+
+        Returns:
+            Dictionary of field_name -> bool
+        """
+        fields = {}
+        for bit_str, field_name in register.bitmap_fields.items():
+            bit = int(bit_str)
+            fields[field_name] = bool(raw_value & (1 << bit))
+        return fields
+
     async def read_all_metrics(self) -> Dict[str, Any]:
         """
         Read all configured metrics from the heat pump.
+        Bitmap registers are expanded into individual boolean fields.
 
         Returns:
             Dictionary of metric_name -> value for successfully read metrics
@@ -148,11 +167,24 @@ class HeatPump:
         for metric_name in self.registers.keys():
             value = await self.read_metric(metric_name)
             if value is not None:
-                metrics[metric_name] = value
+                register = self.registers[metric_name]
+
+                # Expand bitmap registers into individual boolean fields
+                if register.unit == "bitmap" and register.bitmap_fields:
+                    raw_value = int(value)
+                    metrics[metric_name] = raw_value
+                    bitmap_fields = self.decode_bitmap(register, raw_value)
+                    metrics.update(bitmap_fields)
+                    logger.debug(
+                        f"Decoded bitmap '{metric_name}' (raw={raw_value}): "
+                        f"{[k for k, v in bitmap_fields.items() if v]}"
+                    )
+                else:
+                    metrics[metric_name] = value
             else:
                 failed_count += 1
 
-        success_count = len(metrics)
+        success_count = len(self.registers) - failed_count
         total_count = len(self.registers)
 
         if success_count > 0:
@@ -182,6 +214,7 @@ class HeatPump:
     def validate_metrics(self, metrics: Dict[str, Any]) -> Dict[str, Any]:
         """
         Validate metric values and remove invalid ones.
+        Bitmap-expanded boolean fields are passed through as-is.
 
         Args:
             metrics: Dictionary of metric_name -> value
@@ -191,7 +224,19 @@ class HeatPump:
         """
         valid_metrics = {}
 
+        # Build set of known bitmap field names for pass-through
+        bitmap_field_names = set()
+        for register in self.registers.values():
+            if register.bitmap_fields:
+                bitmap_field_names.update(register.bitmap_fields.values())
+
         for metric_name, value in metrics.items():
+            # Bitmap-expanded boolean fields: pass through directly
+            if metric_name in bitmap_field_names:
+                if isinstance(value, bool):
+                    valid_metrics[metric_name] = value
+                continue
+
             if metric_name not in self.registers:
                 logger.warning(
                     f"Skipping unknown metric '{metric_name}' for '{self.name}'"

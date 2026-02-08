@@ -1,26 +1,30 @@
 heatpumps:
 - id: hp1
-  name: Main Heat Pump
-  location: Basement
-  model: stiebel_eltron_wpm
-  enabled: true
-  modbus:
-    type: tcp
-    host: 192.168.0.126
-    port: 502
-    unit_id: 1
-    timeout: 5.0
-    retries: 3
-    retry_delay: 1.0
-- id: hp-1
-  name: Heat Pump1
+  name: Heat Pump 1
   location: Garage
   model: stiebel_eltron_wpm
   enabled: true
   modbus:
     type: tcp
-    host: 192.168.8.74
-    port: 502
+    # Docker: use host.docker.internal with port forwarding (netsh portproxy)
+    # Native: use 192.168.8.74 port 502 directly
+    host: host.docker.internal
+    port: 5074
+    unit_id: 1
+    timeout: 5.0
+    retries: 3
+    retry_delay: 1.0
+- id: hp2
+  name: Heat Pump2
+  location: Garage
+  model: stiebel_eltron_wpm
+  enabled: true
+  modbus:
+    type: tcp
+    # Docker: use host.docker.internal with port forwarding (netsh portproxy)
+    # Native: use 192.168.8.124 port 502 directly
+    host: host.docker.internal
+    port: 5124
     unit_id: 1
     timeout: 5.0
     retries: 3

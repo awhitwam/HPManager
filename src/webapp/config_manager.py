@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
-from .schemas import HeatPumpConfig, HeatPumpsConfig, ModbusConfigTCP
+from .schemas import HeatPumpConfig, HeatPumpsConfig, ModbusConfigTCP, DEFAULT_VISIBLE_FIELDS
 
 
 class ConfigManager:
@@ -23,6 +23,8 @@ class ConfigManager:
         self.config_dir = Path(config_dir)
         self.heatpumps_file = self.config_dir / "heatpumps.yml"
         self.registers_file = self.config_dir / "registers.yml"
+        self.collector_file = self.config_dir / "collector.yml"
+        self.display_file = self.config_dir / "display.yml"
         self.yaml = YAML()
         self.yaml.preserve_quotes = True
         self.yaml.default_flow_style = False
@@ -259,6 +261,133 @@ class ConfigManager:
         deleted_hp = config.delete_heatpump(heat_pump_id)
         self.save_heatpumps(config)
         return deleted_hp
+
+    # --- Settings management ---
+
+    def load_collector_settings(self) -> dict:
+        """Load the collector section from collector.yml."""
+        if not self.collector_file.exists():
+            return {"poll_interval": 10.0}
+        with open(self.collector_file, 'r') as f:
+            data = self.yaml.load(f)
+        if not data:
+            return {"poll_interval": 10.0}
+        return dict(data.get("collector", {"poll_interval": 10.0}))
+
+    def save_collector_poll_interval(self, poll_interval: float) -> None:
+        """Update poll_interval in collector.yml while preserving other settings."""
+        if self.collector_file.exists():
+            with open(self.collector_file, 'r') as f:
+                data = self.yaml.load(f)
+        else:
+            data = CommentedMap()
+
+        if not data:
+            data = CommentedMap()
+        if "collector" not in data:
+            data["collector"] = CommentedMap()
+        # Write as int if it's a whole number, for cleaner YAML
+        data["collector"]["poll_interval"] = int(poll_interval) if poll_interval == int(poll_interval) else poll_interval
+
+        temp_file = self.collector_file.with_suffix('.tmp')
+        try:
+            with open(temp_file, 'w') as f:
+                self.yaml.dump(data, f)
+            temp_file.replace(self.collector_file)
+        except Exception as e:
+            if temp_file.exists():
+                temp_file.unlink()
+            raise IOError(f"Failed to write collector config: {e}")
+
+    def load_display_settings(self) -> dict:
+        """Load display settings from display.yml.
+
+        visible_fields is a dict keyed by heat pump ID.
+        Backward compatible: if visible_fields is a flat list (old format),
+        it's treated as defaults for all pumps.
+        """
+        if not self.display_file.exists():
+            return {
+                "refresh_interval": 10,
+                "visible_fields": {},
+            }
+        with open(self.display_file, 'r') as f:
+            data = self.yaml.load(f)
+        if not data:
+            return {
+                "refresh_interval": 10,
+                "visible_fields": {},
+            }
+        result = dict(data)
+        if "refresh_interval" not in result:
+            result["refresh_interval"] = 10
+        if "sparkline_minutes" not in result:
+            result["sparkline_minutes"] = 30
+
+        vf = result.get("visible_fields", {})
+        if isinstance(vf, list):
+            # Old format: flat list -> migrate to empty dict (use as default)
+            result["visible_fields"] = {}
+        elif isinstance(vf, dict):
+            # Convert ruamel CommentedMap to plain dict of lists
+            result["visible_fields"] = {str(k): list(v) for k, v in vf.items()}
+        else:
+            result["visible_fields"] = {}
+
+        return result
+
+    def get_visible_fields_for_pump(self, hp_id: str) -> list:
+        """Get visible fields for a specific heat pump, falling back to defaults."""
+        settings = self.load_display_settings()
+        vf = settings.get("visible_fields", {})
+        return vf.get(hp_id, list(DEFAULT_VISIBLE_FIELDS))
+
+    def save_display_settings(self, settings: dict) -> None:
+        """Save display settings to display.yml with atomic write."""
+        temp_file = self.display_file.with_suffix('.tmp')
+        try:
+            with open(temp_file, 'w') as f:
+                self.yaml.dump(settings, f)
+            temp_file.replace(self.display_file)
+        except Exception as e:
+            if temp_file.exists():
+                temp_file.unlink()
+            raise IOError(f"Failed to write display config: {e}")
+
+    def get_register_fields(self, model_name: str) -> list:
+        """Get register field definitions for a model, for the settings checklist."""
+        if not self.registers_file.exists():
+            return []
+        try:
+            with open(self.registers_file, 'r') as f:
+                data = self.yaml.load(f)
+            model_data = data.get("models", {}).get(model_name)
+            if not model_data:
+                return []
+            fields = []
+            for reg in model_data.get("registers", []):
+                unit = reg.get("unit", "")
+                if unit == "celsius":
+                    category = "Temperatures"
+                elif unit == "bar":
+                    category = "Pressures"
+                elif unit in ("kw", "kwh"):
+                    category = "Energy"
+                elif unit == "l/min":
+                    category = "Flow"
+                elif unit in ("enum", "bitmap"):
+                    category = "Status"
+                else:
+                    category = "Configuration"
+                fields.append({
+                    "name": reg["name"],
+                    "description": reg.get("description", reg["name"]),
+                    "unit": unit,
+                    "category": category,
+                })
+            return fields
+        except Exception:
+            return []
 
 
 # Global instance (will be initialized by app.py)

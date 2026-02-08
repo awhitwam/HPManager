@@ -1,23 +1,30 @@
 # HPManager - Heat Pump Monitoring System
 
-A comprehensive monitoring system for heat pumps that communicates via Modbus, stores time-series data in InfluxDB, and visualizes metrics through Grafana.
+A comprehensive monitoring system for heat pumps that communicates via Modbus, stores time-series data in InfluxDB, and provides a real-time web dashboard and Grafana visualizations.
+
+> **Note:** This system has only been tested with **Stiebel Eltron** air source heat pumps (ASHP) using the ISG web interface for Modbus TCP connectivity. Other manufacturers or models may require different register mappings.
+
+![Dashboard Screenshot](docs/dashboard.png)
 
 ## Features
 
 - **Modbus Communication**: Support for both TCP and RTU connections
 - **Real-time Data Collection**: Concurrent polling of multiple heat pumps
 - **Time-Series Storage**: InfluxDB for efficient metrics storage
-- **Visualization**: Grafana dashboards for monitoring and analysis
+- **Web Dashboard**: Built-in FastAPI web interface with live metrics, sparkline graphs, and operating status tracking
+- **Grafana Integration**: Grafana dashboards for detailed monitoring and analysis
+- **State Change Tracking**: Shows when each operating state (compressor, pump, heating mode, etc.) last changed
 - **Resilient Design**: Automatic retry logic and error handling
-- **Configurable**: YAML-based configuration for easy customization
+- **Configurable**: YAML-based configuration for easy customization, with a web-based settings UI
 
 ## Architecture
 
-The system consists of three main services:
+The system consists of four main services, all running in Docker:
 
 1. **Collector**: Python service that polls heat pumps via Modbus and writes data to InfluxDB
-2. **InfluxDB**: Time-series database for storing heat pump metrics
-3. **Grafana**: Visualization platform for creating dashboards and monitoring
+2. **Webapp**: FastAPI web dashboard showing live metrics, sparkline trend graphs, and operating state history
+3. **InfluxDB**: Time-series database for storing heat pump metrics
+4. **Grafana**: Visualization platform for creating detailed dashboards and monitoring
 
 ## Quick Start
 
@@ -56,6 +63,11 @@ docker-compose down
 ```
 
 ### Access Services
+
+- **Web Dashboard**: http://localhost:8080
+  - Live metrics with sparkline trend graphs
+  - Operating status with state change timestamps
+  - Settings for poll interval, display fields, and sparkline time window
 
 - **InfluxDB UI**: http://localhost:8086
   - Username: `admin`
@@ -96,11 +108,16 @@ HPManager/
 │   │   ├── modbus_client.py   # Modbus communication
 │   │   ├── heatpump.py    # Heat pump device model
 │   │   └── influx_writer.py   # InfluxDB client
-│   └── webapp/            # Web interface (optional)
+│   └── webapp/            # FastAPI web dashboard
+│       ├── app.py         # Routes and API endpoints
+│       ├── config_manager.py  # YAML config management
+│       ├── schemas.py     # Pydantic validation models
+│       └── templates/     # Jinja2 HTML templates
 ├── config/
 │   ├── heatpumps.yml     # Heat pump configurations
 │   ├── registers.yml     # Modbus register mappings
-│   └── collector.yml     # Collector settings
+│   ├── collector.yml     # Collector settings
+│   └── display.yml       # Dashboard display settings
 ├── docker/
 │   └── Dockerfile.collector   # Collector container
 ├── grafana/
@@ -204,6 +221,12 @@ Refer to your heat pump's Modbus documentation for specific register addresses.
 - Restrict network access to Modbus interfaces
 - Enable authentication on Grafana
 - Regularly update dependencies
+
+## Tested Hardware
+
+- **Stiebel Eltron WPM** series air source heat pumps via ISG web (Modbus TCP)
+
+Other Stiebel Eltron models using the ISG interface should work with the included register mappings. For other manufacturers, you will need to create custom register definitions in `config/registers.yml`.
 
 ## License
 

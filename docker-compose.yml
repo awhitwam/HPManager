@@ -50,6 +50,9 @@ services:
     networks:
       - hpm-network
 
+  # NOTE: On Docker Desktop for Windows, containers cannot reach LAN devices
+  # directly. Heat pump addresses in heatpumps.yml use host.docker.internal
+  # with netsh port forwarding. See README for setup instructions.
   collector:
     build:
       context: .

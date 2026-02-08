@@ -1,32 +1,23 @@
 # Modbus register mappings for Stiebel Eltron heat pumps
-# Based on Modbus TCP/IP documentation for heat pumps with WPM
+# Based on ISG Modbus documentation + verified by register scan
 # Connection: Modbus TCP, Port 502, Slave ID: 1
+#
+# IMPORTANT: Addresses are 0-based Modbus protocol addresses.
+# ISG documentation uses 1-based register numbers, so: address = doc_register - 1
 
 models:
   stiebel_eltron_wpm:
     description: "Stiebel Eltron heat pumps with WPM (Heat Pump Manager)"
     registers:
-      # Block 1: System values (Read input register) - Address offset 500
+
+      # ================================================================
+      # Block 1: System values (Input registers, FC 04)
+      # Verified by scan of 192.168.8.74
+      # ================================================================
 
       # Temperature sensors
-      - name: actual_temperature_fe7
-        address: 501
-        register_type: input
-        data_type: int16
-        unit: celsius
-        scale: 0.1
-        description: "Actual temperature FE7 (room sensor)"
-
-      - name: set_temperature_fe7
-        address: 502
-        register_type: input
-        data_type: int16
-        unit: celsius
-        scale: 0.1
-        description: "Set temperature FE7"
-
       - name: outside_temperature
-        address: 507
+        address: 506
         register_type: input
         data_type: int16
         unit: celsius
@@ -34,7 +25,7 @@ models:
         description: "Outside temperature"
 
       - name: actual_temperature_hk1
-        address: 508
+        address: 507
         register_type: input
         data_type: int16
         unit: celsius
@@ -42,39 +33,15 @@ models:
         description: "Actual temperature heating circuit 1"
 
       - name: set_temperature_hk1
-        address: 510
+        address: 509
         register_type: input
         data_type: int16
         unit: celsius
         scale: 0.1
         description: "Set temperature heating circuit 1"
 
-      - name: actual_temperature_hk2
-        address: 511
-        register_type: input
-        data_type: int16
-        unit: celsius
-        scale: 0.1
-        description: "Actual temperature heating circuit 2"
-
-      - name: set_temperature_hk2
-        address: 512
-        register_type: input
-        data_type: int16
-        unit: celsius
-        scale: 0.1
-        description: "Set temperature heating circuit 2"
-
-      - name: actual_flow_temperature
-        address: 515
-        register_type: input
-        data_type: int16
-        unit: celsius
-        scale: 0.1
-        description: "Actual flow temperature"
-
       - name: actual_return_temperature
-        address: 516
+        address: 515
         register_type: input
         data_type: int16
         unit: celsius
@@ -82,15 +49,23 @@ models:
         description: "Actual return temperature"
 
       - name: actual_buffer_temperature
-        address: 518
+        address: 517
         register_type: input
         data_type: int16
         unit: celsius
         scale: 0.1
         description: "Actual buffer temperature"
 
+      - name: set_buffer_temperature
+        address: 518
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Set buffer temperature (current target)"
+
       - name: actual_dhw_temperature
-        address: 522
+        address: 521
         register_type: input
         data_type: int16
         unit: celsius
@@ -98,76 +73,78 @@ models:
         description: "Actual DHW (domestic hot water) temperature"
 
       - name: set_dhw_temperature
-        address: 523
+        address: 522
         register_type: input
         data_type: int16
         unit: celsius
         scale: 0.1
         description: "Set DHW temperature"
 
-      # Heat pump specific temperatures
-      - name: source_temperature
-        address: 536
+      # Heat pump specific sensors (540+ range)
+      - name: compressor_inlet_temperature
+        address: 541
         register_type: input
         data_type: int16
         unit: celsius
         scale: 0.1
-        description: "Source temperature (brine/water)"
+        description: "Compressor inlet temperature"
+
+      - name: hp_flow_temperature
+        address: 542
+        register_type: input
+        data_type: int16
+        unit: celsius
+        scale: 0.1
+        description: "Heat pump flow temperature"
 
       - name: hot_gas_temperature
-        address: 544
+        address: 543
         register_type: input
         data_type: int16
         unit: celsius
         scale: 0.1
-        description: "Hot gas temperature heat pump 1"
+        description: "Hot gas temperature"
 
-      # Pressures
-      - name: heating_pressure
-        address: 520
+      # Pressures (scale 0.01 confirmed by ISG UI match)
+      - name: low_pressure
+        address: 544
         register_type: input
         data_type: int16
         unit: bar
         scale: 0.01
-        description: "Heating circuit pressure"
+        description: "Low pressure"
 
-      - name: low_pressure
+      - name: mean_pressure
         address: 545
         register_type: input
         data_type: int16
         unit: bar
         scale: 0.01
-        description: "Low pressure heat pump 1"
+        description: "Mean pressure"
 
       - name: high_pressure
-        address: 547
+        address: 546
         register_type: input
         data_type: int16
         unit: bar
         scale: 0.01
-        description: "High pressure heat pump 1"
-
-      # Flow rate
-      - name: flow_rate
-        address: 521
-        register_type: input
-        data_type: int16
-        unit: l/min
-        scale: 0.1
-        description: "Heating circuit flow rate"
+        description: "High pressure"
 
       - name: wp_water_flow_rate
-        address: 548
+        address: 547
         register_type: input
         data_type: int16
         unit: l/min
         scale: 0.1
         description: "Heat pump water flow rate"
 
-      # Block 2: System parameters (Read/write holding register) - Address offset 1500
+      # ================================================================
+      # Block 2: System parameters (Holding registers, FC 03)
+      # Verified by scan - all confirmed with off-by-one correction
+      # ================================================================
 
       - name: operating_mode
-        address: 1501
+        address: 1500
         register_type: holding
         data_type: uint16
         unit: enum
@@ -182,7 +159,7 @@ models:
           5: "DHW mode"
 
       - name: comfort_temperature_hk1
-        address: 1502
+        address: 1501
         register_type: holding
         data_type: int16
         unit: celsius
@@ -190,7 +167,7 @@ models:
         description: "Comfort temperature heating circuit 1"
 
       - name: eco_temperature_hk1
-        address: 1503
+        address: 1502
         register_type: holding
         data_type: int16
         unit: celsius
@@ -198,31 +175,15 @@ models:
         description: "ECO temperature heating circuit 1"
 
       - name: heating_curve_rise_hk1
-        address: 1504
+        address: 1503
         register_type: holding
         data_type: int16
         unit: dimensionless
         scale: 0.01
         description: "Heating curve rise heating circuit 1"
 
-      - name: comfort_temperature_hk2
-        address: 1505
-        register_type: holding
-        data_type: int16
-        unit: celsius
-        scale: 0.1
-        description: "Comfort temperature heating circuit 2"
-
-      - name: eco_temperature_hk2
-        address: 1506
-        register_type: holding
-        data_type: int16
-        unit: celsius
-        scale: 0.1
-        description: "ECO temperature heating circuit 2"
-
       - name: comfort_temperature_dhw
-        address: 1510
+        address: 1509
         register_type: holding
         data_type: int16
         unit: celsius
@@ -230,25 +191,51 @@ models:
         description: "Comfort temperature DHW"
 
       - name: eco_temperature_dhw
-        address: 1511
+        address: 1510
         register_type: holding
         data_type: int16
         unit: celsius
         scale: 0.1
         description: "ECO temperature DHW"
 
-      # Block 3: System status (Read input register) - Address offset 2500
+      # ================================================================
+      # Block 3: System status (Input registers, FC 04)
+      # Bitmap bits documented in ISG Modbus manual, register 2501 (addr 2500)
+      # ================================================================
 
       - name: operating_status
-        address: 2501
+        address: 2500
         register_type: input
         data_type: uint16
         unit: bitmap
         scale: 1
         description: "Operating status (bit-coded)"
+        bitmap_fields:
+          0: "hc1_pump"
+          1: "hc2_pump"
+          2: "heatup_program"
+          3: "nhz_stages_running"
+          4: "hp_heating_mode"
+          5: "hp_dhw_mode"
+          6: "compressor_running"
+          7: "summer_mode"
+          8: "cooling_mode"
+          9: "defrost_mode"
+          10: "silent_mode_1"
+          11: "silent_mode_2"
+
+      - name: evu_release
+        address: 2501
+        register_type: input
+        data_type: uint16
+        unit: bitmap
+        scale: 1
+        description: "Utility company release (EVU)"
+        bitmap_fields:
+          0: "evu_release"
 
       - name: fault_status
-        address: 2504
+        address: 2503
         register_type: input
         data_type: uint16
         unit: enum
@@ -258,18 +245,12 @@ models:
           0: "No fault"
           1: "Fault"
 
-      - name: compressor_running
-        address: 2501
-        register_type: input
-        data_type: uint16
-        unit: bitmap
-        scale: 1
-        description: "Compressor running status (bit 6 of operating status)"
-
-      # Block 4: Energy data (Read input register) - Address offset 3500
+      # ================================================================
+      # Block 4: Energy data (Input registers, FC 04)
+      # ================================================================
 
       - name: heat_meter_heating_day
-        address: 3501
+        address: 3500
         register_type: input
         data_type: uint16
         unit: kwh
@@ -277,7 +258,7 @@ models:
         description: "Heat meter heating daily"
 
       - name: heat_meter_dhw_day
-        address: 3504
+        address: 3503
         register_type: input
         data_type: uint16
         unit: kwh
@@ -285,7 +266,7 @@ models:
         description: "Heat meter DHW daily"
 
       - name: power_consumption_heating_day
-        address: 3511
+        address: 3510
         register_type: input
         data_type: uint16
         unit: kwh
@@ -293,30 +274,14 @@ models:
         description: "Power consumption heating daily"
 
       - name: power_consumption_dhw_day
-        address: 3514
+        address: 3513
         register_type: input
         data_type: uint16
         unit: kwh
         scale: 1
         description: "Power consumption DHW daily"
 
-      - name: compressor_hours_heating
-        address: 3528
-        register_type: input
-        data_type: uint16
-        unit: hours
-        scale: 1
-        description: "Compressor runtime heating"
-
-      - name: compressor_hours_dhw
-        address: 3530
-        register_type: input
-        data_type: uint16
-        unit: hours
-        scale: 1
-        description: "Compressor runtime DHW"
-
-      # Power measurement
+      # Power measurement (confirmed by Home Assistant at address 3679)
       - name: inverter_power
         address: 3679
         register_type: input
@@ -325,26 +290,18 @@ models:
         scale: 0.1
         description: "Inverter power consumption (real-time electrical power)"
 
-      # Calculated/derived values
-      - name: cop_heating
-        address: 3501  # Will need calculation from heat output / power input
-        register_type: input
-        data_type: uint16
-        unit: dimensionless
-        scale: 0.1
-        description: "Coefficient of Performance (COP) for heating - calculated"
-
-# Notes:
-# 1. Register addresses are 1-based as per ISG configuration
-# 2. For input registers, use function code 04 (Read Input Registers)
-# 3. For holding registers, use function code 03 (Read Holding Registers) and 06/16 for writing
-# 4. Data type conversions:
-#    - int16: signed 16-bit (-32768 to 32767)
-#    - uint16: unsigned 16-bit (0 to 65535)
-#    - Scale 0.1 means divide by 10 when reading, multiply by 10 when writing
-#    - Scale 0.01 means divide by 100 when reading, multiply by 100 when writing
-# 5. Unavailable objects return substitute value 32768 (0x8000)
-# 6. Connection parameters:
-#    - IP: 192.168.0.126 (default) or DHCP assigned
-#    - Port: 502
-#    - Slave ID: 1 (permanent)
+# Address correction notes:
+# All addresses = ISG documentation register number - 1
+# Confirmed by scan + cross-reference with ISG UI values:
+#   - Operating mode at 1500 (doc 1501): value 3 = "Comfort mode"
+#   - Comfort temp HK1 at 1501 (doc 1502): 220 = 22.0°C
+#   - Comfort temp DHW at 1509 (doc 1510): 500 = 50.0°C
+#   - Low pressure at 544 (doc 545): 1035 = 10.35 bar (ISG: 10.34)
+#   - Mean pressure at 545 (doc 546): 1042 = 10.42 bar (ISG: 10.41)
+#   - High pressure at 546 (doc 547): 2200 = 22.00 bar (ISG: 21.88)
+#   - Inverter power at 3679 (doc 3680): confirmed by Home Assistant
+#
+# Registers not found on this unit (sensors not connected):
+#   - actual_temperature_fe7 (500), set_temperature_fe7 (501)
+#   - actual/set_temperature_hk2 (510, 511)
+#   - source_temperature (535), heating_pressure (519)

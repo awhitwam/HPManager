@@ -1,9 +1,51 @@
 """
 Pydantic schemas for heat pump configuration validation.
 """
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator, IPvAnyAddress
 import re
+
+
+# Default fields shown on dashboard (matches original hardcoded display)
+DEFAULT_VISIBLE_FIELDS = [
+    "outside_temperature",
+    "actual_temperature_hk1",
+    "actual_return_temperature",
+    "actual_dhw_temperature",
+    "inverter_power",
+    "operating_status",
+    "fault_status",
+]
+
+
+class DisplaySettings(BaseModel):
+    """Display configuration for the web dashboard."""
+    refresh_interval: int = Field(
+        default=10, ge=5, le=120,
+        description="Dashboard auto-refresh interval in seconds"
+    )
+    sparkline_minutes: int = Field(
+        default=30, ge=5, le=480,
+        description="Time window for sparkline graphs in minutes"
+    )
+    visible_fields: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Per-pump visible fields: {pump_id: [field_names]}"
+    )
+
+
+class CollectorSettings(BaseModel):
+    """Collector configuration settable from the UI."""
+    poll_interval: float = Field(
+        default=10.0, ge=5.0, le=120.0,
+        description="Seconds between polling cycles"
+    )
+
+
+class AppSettings(BaseModel):
+    """Combined application settings."""
+    collector: CollectorSettings = Field(default_factory=CollectorSettings)
+    display: DisplaySettings = Field(default_factory=DisplaySettings)
 
 
 class ModbusConfigTCP(BaseModel):

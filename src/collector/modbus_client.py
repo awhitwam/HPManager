@@ -9,7 +9,6 @@ import logging
 from typing import Optional, Union, Literal
 from pymodbus.client import AsyncModbusTcpClient, AsyncModbusSerialClient
 from pymodbus.exceptions import ModbusException
-from pymodbus.framer import ModbusSocketFramer, ModbusRtuFramer
 
 
 logger = logging.getLogger(__name__)
@@ -90,7 +89,6 @@ class ModbusClient:
                         host=self.host,
                         port=self.port,
                         timeout=self.timeout,
-                        framer=ModbusSocketFramer,
                     )
                     logger.info(f"Connecting to Modbus TCP at {self.host}:{self.port}")
 
@@ -105,7 +103,6 @@ class ModbusClient:
                         parity=self.parity,
                         stopbits=self.stopbits,
                         timeout=self.timeout,
-                        framer=ModbusRtuFramer,
                     )
                     logger.info(f"Connecting to Modbus RTU at {self.serial_port}")
 
@@ -167,7 +164,7 @@ class ModbusClient:
                 result = await self.client.read_holding_registers(
                     address=address,
                     count=count,
-                    slave=self.unit_id,
+                    device_id=self.unit_id,
                 )
 
                 if result.isError():
@@ -221,7 +218,7 @@ class ModbusClient:
                 result = await self.client.read_input_registers(
                     address=address,
                     count=count,
-                    slave=self.unit_id,
+                    device_id=self.unit_id,
                 )
 
                 if result.isError():
@@ -279,6 +276,9 @@ class ModbusClient:
         bytes_data = struct.pack(">HHHH", registers[0], registers[1], registers[2], registers[3])
         return struct.unpack(">d", bytes_data)[0]
 
+    # Stiebel Eltron ISG substitute value for unavailable/unconfigured sensors
+    SUBSTITUTE_VALUE = 32768  # 0x8000
+
     async def read_register(
         self,
         address: int,
@@ -296,7 +296,9 @@ class ModbusClient:
             scale: Scale factor to apply to raw value
 
         Returns:
-            Decoded and scaled value or None on failure
+            Decoded and scaled value or None on failure.
+            Returns None if the register contains the substitute value (0x8000)
+            indicating the sensor/object is unavailable.
         """
         # Determine number of registers to read
         count_map = {
@@ -316,6 +318,20 @@ class ModbusClient:
             registers = await self.read_input_registers(address, count)
 
         if registers is None:
+            return None
+
+        # Check for Stiebel Eltron substitute value (0x8000 = unavailable sensor)
+        # For single-register types, the raw value will be exactly 32768
+        # For multi-register types, both words being 32768 indicates unavailable
+        if count == 1 and registers[0] == self.SUBSTITUTE_VALUE:
+            logger.debug(
+                f"Register at {address} returned substitute value 0x8000 (sensor unavailable)"
+            )
+            return None
+        elif count > 1 and all(r == self.SUBSTITUTE_VALUE for r in registers):
+            logger.debug(
+                f"Registers at {address} returned substitute values (sensor unavailable)"
+            )
             return None
 
         # Decode based on data type

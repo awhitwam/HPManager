@@ -1,0 +1,29 @@
+refresh_interval: 10
+sparkline_minutes: 60
+visible_fields:
+  hp1:
+  - outside_temperature
+  - actual_temperature_hk1
+  - set_temperature_hk1
+  - actual_return_temperature
+  - actual_buffer_temperature
+  - set_buffer_temperature
+  - actual_dhw_temperature
+  - set_dhw_temperature
+  - hot_gas_temperature
+  - wp_water_flow_rate
+  - inverter_power
+  - operating_status
+  - fault_status
+  hp2:
+  - outside_temperature
+  - actual_temperature_hk1
+  - set_temperature_hk1
+  - actual_return_temperature
+  - actual_buffer_temperature
+  - set_buffer_temperature
+  - hot_gas_temperature
+  - wp_water_flow_rate
+  - inverter_power
+  - operating_status
+  - fault_status

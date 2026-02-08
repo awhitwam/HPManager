@@ -266,6 +266,20 @@ class HeatPumpCollector:
         tasks = [self.poll_heat_pump(hp) for hp in self.heat_pumps]
         await asyncio.gather(*tasks, return_exceptions=True)
 
+    async def _connect_heat_pumps(self) -> int:
+        """
+        Attempt to connect to all heat pumps.
+
+        Returns:
+            Number of successfully connected heat pumps
+        """
+        logger.info(f"Connecting to {len(self.heat_pumps)} heat pumps")
+        connect_tasks = [hp.connect() for hp in self.heat_pumps]
+        results = await asyncio.gather(*connect_tasks, return_exceptions=True)
+        connected_count = sum(1 for r in results if r is True)
+        logger.info(f"Connected to {connected_count}/{len(self.heat_pumps)} heat pumps")
+        return connected_count
+
     async def run(self):
         """Main run loop."""
         logger.info("Starting HeatPumpCollector")
@@ -278,16 +292,27 @@ class HeatPumpCollector:
         # Start InfluxDB writer
         await self.influx_writer.start()
 
-        # Connect to all heat pumps
-        logger.info(f"Connecting to {len(self.heat_pumps)} heat pumps")
-        connect_tasks = [hp.connect() for hp in self.heat_pumps]
-        results = await asyncio.gather(*connect_tasks, return_exceptions=True)
+        # Initial connection attempt with retries
+        connected_count = 0
+        retry_count = 0
+        while connected_count == 0 and not self._shutdown_event.is_set():
+            connected_count = await self._connect_heat_pumps()
+            if connected_count == 0:
+                retry_count += 1
+                wait_time = min(30, 10 * retry_count)  # Back off up to 30s
+                logger.warning(
+                    f"No heat pumps reachable (attempt {retry_count}), "
+                    f"retrying in {wait_time}s..."
+                )
+                try:
+                    await asyncio.wait_for(
+                        self._shutdown_event.wait(), timeout=wait_time
+                    )
+                    break  # Shutdown requested
+                except asyncio.TimeoutError:
+                    pass
 
-        connected_count = sum(1 for r in results if r is True)
-        logger.info(f"Connected to {connected_count}/{len(self.heat_pumps)} heat pumps")
-
-        if connected_count == 0:
-            logger.error("Failed to connect to any heat pumps, exiting")
+        if self._shutdown_event.is_set():
             await self.influx_writer.stop()
             return
 
@@ -298,6 +323,13 @@ class HeatPumpCollector:
         try:
             while self._running:
                 await self.poll_all_heat_pumps()
+
+                # Periodically reconnect disconnected heat pumps
+                disconnected = [hp for hp in self.heat_pumps if not hp.is_connected]
+                if disconnected:
+                    logger.info(f"Reconnecting {len(disconnected)} disconnected heat pump(s)")
+                    reconnect_tasks = [hp.connect() for hp in disconnected]
+                    await asyncio.gather(*reconnect_tasks, return_exceptions=True)
 
                 # Wait for next poll or shutdown
                 try:

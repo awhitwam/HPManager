@@ -50,3 +50,11 @@ Thumbs.db
 # Project specific
 .claude/
 config/*.local.yml
+
+# Windows reserved device names
+nul
+NUL
+
+# Stray test files
+*test_output*.html
+*hpm_test*.html
