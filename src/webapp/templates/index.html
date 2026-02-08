@@ -321,6 +321,16 @@
             background: #4b5563;
         }
 
+        .btn-grafana {
+            background: #F46800;
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn-grafana:hover {
+            background: #e05e00;
+        }
+
         .btn-small {
             padding: 5px 10px;
             font-size: 12px;
@@ -734,6 +744,9 @@
                 <p class="subtitle">Real-time heat pump monitoring</p>
             </div>
             <div class="header-right">
+                <a href="/grafana" target="_blank" class="btn btn-grafana" id="grafana-link">
+                    Grafana
+                </a>
                 <button class="btn btn-secondary" onclick="openSettingsModal()">
                     Settings
                 </button>
@@ -1128,6 +1141,10 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
+            // Set Grafana link to same host on port 3000
+            document.getElementById('grafana-link').href =
+                `${window.location.protocol}//${window.location.hostname}:3000`;
+
             loadModels();
             checkRestartNeeded();
             startAutoRefresh();
