@@ -32,6 +32,10 @@ class DisplaySettings(BaseModel):
         default_factory=dict,
         description="Per-pump visible fields: {pump_id: [field_names]}"
     )
+    card_order: List[str] = Field(
+        default_factory=list,
+        description="Order of heat pump cards on dashboard"
+    )
 
 
 class CollectorSettings(BaseModel):

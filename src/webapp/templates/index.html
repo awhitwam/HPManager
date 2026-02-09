@@ -76,6 +76,17 @@
             border-radius: 10px;
             padding: 25px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            cursor: grab;
+            transition: opacity 0.2s;
+        }
+
+        .heat-pump-card.dragging {
+            opacity: 0.4;
+        }
+
+        .heat-pump-card.drag-over {
+            outline: 2px dashed #667eea;
+            outline-offset: -2px;
         }
 
 
@@ -96,6 +107,13 @@
             font-size: 22px;
             font-weight: 600;
             color: #333;
+        }
+
+        .hp-last-update {
+            font-size: 12px;
+            font-weight: 400;
+            color: #9ca3af;
+            margin-left: 8px;
         }
 
         .hp-location {
@@ -769,10 +787,10 @@
         <div class="heat-pumps-grid" id="heat-pumps-container">
             {% if heat_pumps %}
                 {% for hp in heat_pumps %}
-                <div class="heat-pump-card" data-hp-card="{{ hp.id }}">
+                <div class="heat-pump-card" data-hp-card="{{ hp.id }}" draggable="true">
                     <div class="hp-header">
                         <div class="hp-header-left">
-                            <div class="hp-name">{{ hp.name }}</div>
+                            <div class="hp-name">{{ hp.name }} <span class="hp-last-update" data-hp-timestamp="{{ hp.id }}" data-ts="{{ hp.data.timestamp or '' }}">--</span></div>
                             <div class="hp-location">📍 {{ hp.location }}</div>
                             {% set m = hp.data.metrics or {} %}
                             <div class="hp-header-mode" data-hp="{{ hp.id }}" style="font-size: 13px; color: #8b5cf6; font-weight: 600; margin-top: 4px;">{{ m.operating_mode|default('', true) }}</div>
@@ -1150,6 +1168,8 @@
             startAutoRefresh();
             loadSparklines();
             loadStateChanges();
+            startLastUpdateTimer();
+            initDragAndDrop();
         });
 
         // Server-side settings
@@ -1214,6 +1234,105 @@
             }
         }
 
+        // --- Last update countdown timer ---
+        function startLastUpdateTimer() {
+            updateLastUpdateDisplays();
+            setInterval(updateLastUpdateDisplays, 1000);
+        }
+
+        function updateLastUpdateDisplays() {
+            document.querySelectorAll('[data-hp-timestamp]').forEach(el => {
+                const ts = el.dataset.ts;
+                if (!ts) { el.textContent = '--'; return; }
+                const secs = Math.round((Date.now() - new Date(ts).getTime()) / 1000);
+                if (secs < 0 || isNaN(secs)) { el.textContent = '--'; return; }
+                el.textContent = secs + 's ago';
+            });
+        }
+
+        // --- Drag-and-drop card reordering ---
+        let draggedCard = null;
+
+        function initDragAndDrop() {
+            const container = document.getElementById('heat-pumps-container');
+            if (!container) return;
+
+            container.addEventListener('dragstart', (e) => {
+                const card = e.target.closest('.heat-pump-card');
+                if (!card) return;
+                draggedCard = card;
+                card.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            container.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const target = e.target.closest('.heat-pump-card');
+                if (!target || target === draggedCard) return;
+
+                // Clear all drag-over indicators
+                container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                target.classList.add('drag-over');
+            });
+
+            container.addEventListener('dragleave', (e) => {
+                const target = e.target.closest('.heat-pump-card');
+                if (target) target.classList.remove('drag-over');
+            });
+
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const target = e.target.closest('.heat-pump-card');
+                if (!target || !draggedCard || target === draggedCard) return;
+
+                // Determine insert position based on cursor location relative to target
+                const rect = target.getBoundingClientRect();
+                const midX = rect.left + rect.width / 2;
+                if (e.clientX < midX) {
+                    container.insertBefore(draggedCard, target);
+                } else {
+                    container.insertBefore(draggedCard, target.nextSibling);
+                }
+
+                target.classList.remove('drag-over');
+                saveCardOrder();
+            });
+
+            container.addEventListener('dragend', () => {
+                if (draggedCard) draggedCard.classList.remove('dragging');
+                container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                draggedCard = null;
+            });
+        }
+
+        async function saveCardOrder() {
+            const cards = document.querySelectorAll('[data-hp-card]');
+            const order = Array.from(cards).map(c => c.dataset.hpCard);
+
+            try {
+                const settingsRes = await fetch('/api/settings');
+                const current = await settingsRes.json();
+
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        collector: current.collector,
+                        display: {
+                            refresh_interval: current.display.refresh_interval,
+                            sparkline_minutes: current.display.sparkline_minutes || 30,
+                            visible_fields: current.display.visible_fields || {},
+                            card_order: order,
+                        }
+                    })
+                });
+            } catch (e) {
+                console.error('Failed to save card order:', e);
+                showToast('Failed to save card order', 'error');
+            }
+        }
+
         // AJAX dashboard refresh — updates values + sparklines without page reload
         async function refreshDashboard() {
             try {
@@ -1224,6 +1343,12 @@
                 for (const hp of pumps) {
                     const metrics = (hp.data && hp.data.metrics) || {};
                     const hasTimestamp = hp.data && hp.data.timestamp;
+
+                    // Update last-update timestamp
+                    const tsEl = document.querySelector(`[data-hp-timestamp="${hp.id}"]`);
+                    if (tsEl) {
+                        tsEl.dataset.ts = hasTimestamp ? hp.data.timestamp : '';
+                    }
 
                     // Update online/offline badge
                     const badge = document.querySelector(`[data-hp-badge="${hp.id}"]`);
