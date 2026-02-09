@@ -174,12 +174,6 @@ async def dashboard(request: Request):
             }
             heat_pump_data.append(hp_info)
 
-    # Sort cards by saved order
-    card_order = display_settings.get("card_order", [])
-    if card_order:
-        order_map = {hp_id: i for i, hp_id in enumerate(card_order)}
-        heat_pump_data.sort(key=lambda hp: order_map.get(hp["id"], 999))
-
     sparkline_minutes = display_settings.get("sparkline_minutes", 30)
 
     return templates.TemplateResponse(
@@ -217,13 +211,6 @@ async def get_all_heatpumps():
                 "cop": calculate_cop(latest_data),
             }
             heat_pump_data.append(hp_info)
-
-    # Sort cards by saved order
-    config_mgr = get_config_manager()
-    card_order = config_mgr.load_display_settings().get("card_order", [])
-    if card_order:
-        order_map = {hp_id: i for i, hp_id in enumerate(card_order)}
-        heat_pump_data.sort(key=lambda hp: order_map.get(hp["id"], 999))
 
     return {
         "heat_pumps": heat_pump_data,
@@ -541,7 +528,6 @@ async def get_settings():
                 "refresh_interval": display_settings.get("refresh_interval", 10),
                 "sparkline_minutes": display_settings.get("sparkline_minutes", 30),
                 "visible_fields": display_settings.get("visible_fields", {}),
-                "card_order": display_settings.get("card_order", []),
             }
         }
     except Exception as e:

@@ -76,17 +76,6 @@
             border-radius: 10px;
             padding: 25px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            cursor: grab;
-            transition: opacity 0.2s;
-        }
-
-        .heat-pump-card.dragging {
-            opacity: 0.4;
-        }
-
-        .heat-pump-card.drag-over {
-            outline: 2px dashed #667eea;
-            outline-offset: -2px;
         }
 
 
@@ -197,6 +186,17 @@
             padding: 15px;
             border-radius: 8px;
             border-left: 4px solid #667eea;
+            cursor: grab;
+            transition: opacity 0.2s;
+        }
+
+        .metric-dragging {
+            opacity: 0.4;
+        }
+
+        .metric-drag-over {
+            outline: 2px dashed #667eea;
+            outline-offset: -2px;
         }
 
         .metric-label {
@@ -787,7 +787,7 @@
         <div class="heat-pumps-grid" id="heat-pumps-container">
             {% if heat_pumps %}
                 {% for hp in heat_pumps %}
-                <div class="heat-pump-card" data-hp-card="{{ hp.id }}" draggable="true">
+                <div class="heat-pump-card" data-hp-card="{{ hp.id }}">
                     <div class="hp-header">
                         <div class="hp-header-left">
                             <div class="hp-name">{{ hp.name }} <span class="hp-last-update" data-hp-timestamp="{{ hp.id }}" data-ts="{{ hp.data.timestamp or '' }}">--</span></div>
@@ -868,7 +868,7 @@
                         {% for field_name in hp.visible_fields %}
                             {% if field_name in field_meta %}
                                 {% set meta = field_meta[field_name] %}
-                                <div class="metric {{ meta.css }}{% if meta.large is defined and meta.large %} metric-large{% endif %}">
+                                <div class="metric {{ meta.css }}{% if meta.large is defined and meta.large %} metric-large{% endif %}" data-field="{{ field_name }}" draggable="true">
                                     <div class="metric-label">{{ meta.label }}</div>
                                     <div class="metric-value" data-hp="{{ hp.id }}" data-field="{{ field_name }}">
                                         {% if hp.data.metrics[field_name] is defined %}
@@ -897,7 +897,7 @@
                                 {# Operating status flags now shown in header — skip here #}
                             {% elif field_name == "fault_status" %}
                                 {# Special: fault status shown as alert when fault detected #}
-                                <div class="metric status metric-large" data-hp-fault="{{ hp.id }}" style="border: 2px solid #ef4444;{% if not (hp.data.metrics.fault_status is defined and hp.data.metrics.fault_status == 'Fault') %} display:none;{% endif %}">
+                                <div class="metric status metric-large" data-field="fault_status" data-hp-fault="{{ hp.id }}" draggable="true" style="border: 2px solid #ef4444;{% if not (hp.data.metrics.fault_status is defined and hp.data.metrics.fault_status == 'Fault') %} display:none;{% endif %}">
                                     <div class="metric-label" style="color: #991b1b;">Fault Status</div>
                                     <div class="status-flags">
                                         <span class="status-flag active" style="background:#fee2e2;color:#991b1b;">FAULT DETECTED</span>
@@ -1169,7 +1169,7 @@
             loadSparklines();
             loadStateChanges();
             startLastUpdateTimer();
-            initDragAndDrop();
+            initMetricDragAndDrop();
         });
 
         // Server-side settings
@@ -1250,69 +1250,78 @@
             });
         }
 
-        // --- Drag-and-drop card reordering ---
-        let draggedCard = null;
+        // --- Drag-and-drop metric tile reordering ---
+        let draggedMetric = null;
+        let dragSourceGrid = null;
 
-        function initDragAndDrop() {
-            const container = document.getElementById('heat-pumps-container');
-            if (!container) return;
+        function initMetricDragAndDrop() {
+            document.querySelectorAll('.metrics-grid').forEach(grid => {
+                grid.addEventListener('dragstart', (e) => {
+                    const tile = e.target.closest('.metric');
+                    if (!tile) return;
+                    draggedMetric = tile;
+                    dragSourceGrid = grid;
+                    tile.classList.add('metric-dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
 
-            container.addEventListener('dragstart', (e) => {
-                const card = e.target.closest('.heat-pump-card');
-                if (!card) return;
-                draggedCard = card;
-                card.classList.add('dragging');
-                e.dataTransfer.effectAllowed = 'move';
-            });
+                grid.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    const target = e.target.closest('.metric');
+                    if (!target || target === draggedMetric || grid !== dragSourceGrid) return;
+                    grid.querySelectorAll('.metric-drag-over').forEach(el => el.classList.remove('metric-drag-over'));
+                    target.classList.add('metric-drag-over');
+                });
 
-            container.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                const target = e.target.closest('.heat-pump-card');
-                if (!target || target === draggedCard) return;
+                grid.addEventListener('dragleave', (e) => {
+                    const target = e.target.closest('.metric');
+                    if (target) target.classList.remove('metric-drag-over');
+                });
 
-                // Clear all drag-over indicators
-                container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-                target.classList.add('drag-over');
-            });
+                grid.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (grid !== dragSourceGrid) return;
+                    const target = e.target.closest('.metric');
+                    if (!target || !draggedMetric || target === draggedMetric) return;
 
-            container.addEventListener('dragleave', (e) => {
-                const target = e.target.closest('.heat-pump-card');
-                if (target) target.classList.remove('drag-over');
-            });
+                    // Insert before or after based on cursor position
+                    const rect = target.getBoundingClientRect();
+                    const midX = rect.left + rect.width / 2;
+                    if (e.clientX < midX) {
+                        grid.insertBefore(draggedMetric, target);
+                    } else {
+                        grid.insertBefore(draggedMetric, target.nextSibling);
+                    }
 
-            container.addEventListener('drop', (e) => {
-                e.preventDefault();
-                const target = e.target.closest('.heat-pump-card');
-                if (!target || !draggedCard || target === draggedCard) return;
+                    target.classList.remove('metric-drag-over');
+                    saveMetricOrder(grid);
+                });
 
-                // Determine insert position based on cursor location relative to target
-                const rect = target.getBoundingClientRect();
-                const midX = rect.left + rect.width / 2;
-                if (e.clientX < midX) {
-                    container.insertBefore(draggedCard, target);
-                } else {
-                    container.insertBefore(draggedCard, target.nextSibling);
-                }
-
-                target.classList.remove('drag-over');
-                saveCardOrder();
-            });
-
-            container.addEventListener('dragend', () => {
-                if (draggedCard) draggedCard.classList.remove('dragging');
-                container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-                draggedCard = null;
+                grid.addEventListener('dragend', () => {
+                    if (draggedMetric) draggedMetric.classList.remove('metric-dragging');
+                    grid.querySelectorAll('.metric-drag-over').forEach(el => el.classList.remove('metric-drag-over'));
+                    draggedMetric = null;
+                    dragSourceGrid = null;
+                });
             });
         }
 
-        async function saveCardOrder() {
-            const cards = document.querySelectorAll('[data-hp-card]');
-            const order = Array.from(cards).map(c => c.dataset.hpCard);
+        async function saveMetricOrder(grid) {
+            // Find which heat pump this grid belongs to
+            const card = grid.closest('[data-hp-card]');
+            if (!card) return;
+            const hpId = card.dataset.hpCard;
+
+            // Read new field order from DOM
+            const fields = Array.from(grid.querySelectorAll('.metric[data-field]'))
+                .map(el => el.dataset.field);
 
             try {
                 const settingsRes = await fetch('/api/settings');
                 const current = await settingsRes.json();
+                const visibleFields = current.display.visible_fields || {};
+                visibleFields[hpId] = fields;
 
                 await fetch('/api/settings', {
                     method: 'PUT',
@@ -1322,14 +1331,13 @@
                         display: {
                             refresh_interval: current.display.refresh_interval,
                             sparkline_minutes: current.display.sparkline_minutes || 30,
-                            visible_fields: current.display.visible_fields || {},
-                            card_order: order,
+                            visible_fields: visibleFields,
                         }
                     })
                 });
             } catch (e) {
-                console.error('Failed to save card order:', e);
-                showToast('Failed to save card order', 'error');
+                console.error('Failed to save metric order:', e);
+                showToast('Failed to save field order', 'error');
             }
         }
 
