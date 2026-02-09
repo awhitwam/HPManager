@@ -64,6 +64,33 @@
             margin-top: 10px;
         }
 
+        .sparkline-slider-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .sparkline-slider-bar label {
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .sparkline-slider-bar input[type="range"] {
+            width: 180px;
+            accent-color: #667eea;
+        }
+
+        #sparkline-range-label {
+            min-width: 55px;
+            font-variant-numeric: tabular-nums;
+        }
+
         .heat-pumps-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
@@ -784,6 +811,12 @@
             </button>
         </div>
 
+        <div class="sparkline-slider-bar">
+            <label for="sparkline-range">Sparkline:</label>
+            <input type="range" id="sparkline-range" min="5" max="480" step="5" value="{{ sparkline_minutes }}">
+            <span id="sparkline-range-label">{{ sparkline_minutes }} min</span>
+        </div>
+
         <div class="heat-pumps-grid" id="heat-pumps-container">
             {% if heat_pumps %}
                 {% for hp in heat_pumps %}
@@ -1156,6 +1189,20 @@
         let allHeatPumps = [];
         let deleteTarget = null;
         let autoRefreshInterval = null;
+        let pendingReload = false;
+
+        // Safe reload: waits until no modals are open
+        function scheduleReload() {
+            pendingReload = true;
+            function tryReload() {
+                if (document.querySelector('.modal-overlay.show')) {
+                    setTimeout(tryReload, 500);
+                } else {
+                    location.reload();
+                }
+            }
+            setTimeout(tryReload, 1000);
+        }
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
@@ -1170,11 +1217,12 @@
             loadStateChanges();
             startLastUpdateTimer();
             initMetricDragAndDrop();
+            initSparklineSlider();
         });
 
         // Server-side settings
         const SERVER_REFRESH_INTERVAL = {{ refresh_interval }};
-        const SPARKLINE_MINUTES = {{ sparkline_minutes }};
+        let SPARKLINE_MINUTES = {{ sparkline_minutes }};
 
         // Field metadata for JS-side formatting (mirrors Jinja2 field_meta)
         const FIELD_META = {
@@ -1248,6 +1296,47 @@
                 if (secs < 0 || isNaN(secs)) { el.textContent = '--'; return; }
                 el.textContent = secs + 's ago';
             });
+        }
+
+        // --- Sparkline time window slider ---
+        let sparklineDebounce = null;
+
+        function initSparklineSlider() {
+            const slider = document.getElementById('sparkline-range');
+            const label = document.getElementById('sparkline-range-label');
+            if (!slider) return;
+
+            slider.addEventListener('input', () => {
+                label.textContent = slider.value + ' min';
+            });
+
+            slider.addEventListener('change', () => {
+                SPARKLINE_MINUTES = parseInt(slider.value);
+                loadSparklines();
+                saveSparklineMinutes(SPARKLINE_MINUTES);
+            });
+        }
+
+        async function saveSparklineMinutes(minutes) {
+            try {
+                const settingsRes = await fetch('/api/settings');
+                const current = await settingsRes.json();
+
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        collector: current.collector,
+                        display: {
+                            refresh_interval: current.display.refresh_interval,
+                            sparkline_minutes: minutes,
+                            visible_fields: current.display.visible_fields || {},
+                        }
+                    })
+                });
+            } catch (e) {
+                console.error('Failed to save sparkline setting:', e);
+            }
         }
 
         // --- Drag-and-drop metric tile reordering ---
@@ -1933,7 +2022,7 @@
                 closeFormModal();
 
                 // Reload page after short delay to apply field changes
-                setTimeout(() => location.reload(), 1000);
+                scheduleReload();
 
             } catch (error) {
                 console.error('Save error:', error);
@@ -1976,7 +2065,7 @@
                 localStorage.setItem('requiresRestart', 'true');
                 closeDeleteModal();
 
-                setTimeout(() => location.reload(), 1000);
+                scheduleReload();
 
             } catch (error) {
                 console.error('Delete error:', error);
@@ -2152,7 +2241,7 @@
                 closeSettingsModal();
 
                 // Reload to apply new refresh interval / sparkline window
-                setTimeout(() => location.reload(), 1000);
+                scheduleReload();
 
             } catch (error) {
                 console.error('Save settings error:', error);
@@ -2163,10 +2252,12 @@
             }
         }
 
-        // Close modals on overlay click
+        // Close modals on overlay click (only if both mousedown and mouseup are on overlay)
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            let mousedownTarget = null;
+            overlay.addEventListener('mousedown', (e) => { mousedownTarget = e.target; });
             overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
+                if (e.target === overlay && mousedownTarget === overlay) {
                     overlay.classList.remove('show');
                     startAutoRefresh();
                 }
