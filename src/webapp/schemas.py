@@ -32,6 +32,10 @@ class DisplaySettings(BaseModel):
         default_factory=dict,
         description="Per-pump visible fields: {pump_id: [field_names]}"
     )
+    sparkline_minutes_per_pump: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Per-pump sparkline timeframe in minutes: {pump_id: minutes}"
+    )
 
 
 class CollectorSettings(BaseModel):

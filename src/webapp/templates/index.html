@@ -64,30 +64,23 @@
             margin-top: 10px;
         }
 
-        .sparkline-slider-bar {
+        .hp-timeframe {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 12px;
-            padding: 8px 14px;
-            background: rgba(255, 255, 255, 0.85);
-            border-radius: 8px;
-            font-size: 13px;
-            color: #555;
+            gap: 6px;
+            margin-top: 6px;
+            font-size: 11px;
+            color: #9ca3af;
         }
 
-        .sparkline-slider-bar label {
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        .sparkline-slider-bar input[type="range"] {
-            width: 180px;
+        .hp-timeframe input[type="range"] {
+            width: 100px;
+            height: 4px;
             accent-color: #667eea;
         }
 
-        #sparkline-range-label {
-            min-width: 55px;
+        .hp-timeframe-label {
+            min-width: 42px;
             font-variant-numeric: tabular-nums;
         }
 
@@ -811,12 +804,6 @@
             </button>
         </div>
 
-        <div class="sparkline-slider-bar">
-            <label for="sparkline-range">Sparkline:</label>
-            <input type="range" id="sparkline-range" min="5" max="480" step="5" value="{{ sparkline_minutes }}">
-            <span id="sparkline-range-label">{{ sparkline_minutes }} min</span>
-        </div>
-
         <div class="heat-pumps-grid" id="heat-pumps-container">
             {% if heat_pumps %}
                 {% for hp in heat_pumps %}
@@ -827,6 +814,13 @@
                             <div class="hp-location">📍 {{ hp.location }}</div>
                             {% set m = hp.data.metrics or {} %}
                             <div class="hp-header-mode" data-hp="{{ hp.id }}" style="font-size: 13px; color: #8b5cf6; font-weight: 600; margin-top: 4px;">{{ m.operating_mode|default('', true) }}</div>
+                            {% set hp_tf = sparkline_minutes_per_pump.get(hp.id, sparkline_minutes) %}
+                            <div class="hp-timeframe">
+                                <span>Timeframe</span>
+                                <input type="range" class="timeframe-slider" data-hp="{{ hp.id }}"
+                                       min="5" max="480" step="5" value="{{ hp_tf }}">
+                                <span class="hp-timeframe-label" data-hp-tf-label="{{ hp.id }}">{{ hp_tf }} min</span>
+                            </div>
                         </div>
                         <div class="hp-status-card" data-hp-status-card="{{ hp.id }}">
                             <div class="status-row" data-flag="compressor_running">
@@ -1217,12 +1211,13 @@
             loadStateChanges();
             startLastUpdateTimer();
             initMetricDragAndDrop();
-            initSparklineSlider();
+            initTimeframeSliders();
         });
 
         // Server-side settings
         const SERVER_REFRESH_INTERVAL = {{ refresh_interval }};
-        let SPARKLINE_MINUTES = {{ sparkline_minutes }};
+        const DEFAULT_SPARKLINE_MINUTES = {{ sparkline_minutes }};
+        let sparklineMinutesPerPump = {{ sparkline_minutes_per_pump | tojson }};
 
         // Field metadata for JS-side formatting (mirrors Jinja2 field_meta)
         const FIELD_META = {
@@ -1298,29 +1293,31 @@
             });
         }
 
-        // --- Sparkline time window slider ---
-        let sparklineDebounce = null;
+        // --- Per-pump timeframe sliders ---
+        function initTimeframeSliders() {
+            document.querySelectorAll('.timeframe-slider').forEach(slider => {
+                const hpId = slider.dataset.hp;
+                const label = document.querySelector(`[data-hp-tf-label="${hpId}"]`);
 
-        function initSparklineSlider() {
-            const slider = document.getElementById('sparkline-range');
-            const label = document.getElementById('sparkline-range-label');
-            if (!slider) return;
+                slider.addEventListener('input', () => {
+                    label.textContent = slider.value + ' min';
+                });
 
-            slider.addEventListener('input', () => {
-                label.textContent = slider.value + ' min';
-            });
-
-            slider.addEventListener('change', () => {
-                SPARKLINE_MINUTES = parseInt(slider.value);
-                loadSparklines();
-                saveSparklineMinutes(SPARKLINE_MINUTES);
+                slider.addEventListener('change', () => {
+                    const mins = parseInt(slider.value);
+                    sparklineMinutesPerPump[hpId] = mins;
+                    loadSparklineForPump(hpId);
+                    saveTimeframeForPump(hpId, mins);
+                });
             });
         }
 
-        async function saveSparklineMinutes(minutes) {
+        async function saveTimeframeForPump(hpId, minutes) {
             try {
                 const settingsRes = await fetch('/api/settings');
                 const current = await settingsRes.json();
+                const timeframes = current.display.sparkline_minutes_per_pump || {};
+                timeframes[hpId] = minutes;
 
                 await fetch('/api/settings', {
                     method: 'PUT',
@@ -1329,13 +1326,14 @@
                         collector: current.collector,
                         display: {
                             refresh_interval: current.display.refresh_interval,
-                            sparkline_minutes: minutes,
+                            sparkline_minutes: current.display.sparkline_minutes || DEFAULT_SPARKLINE_MINUTES,
+                            sparkline_minutes_per_pump: timeframes,
                             visible_fields: current.display.visible_fields || {},
                         }
                     })
                 });
             } catch (e) {
-                console.error('Failed to save sparkline setting:', e);
+                console.error('Failed to save timeframe:', e);
             }
         }
 
@@ -1695,7 +1693,8 @@
             // Fetch history for each pump (in parallel)
             const fetches = Object.keys(byPump).map(async hpId => {
                 try {
-                    const res = await fetch(`/api/heatpumps/${hpId}/history?minutes=${SPARKLINE_MINUTES}`);
+                    const mins = sparklineMinutesPerPump[hpId] || DEFAULT_SPARKLINE_MINUTES;
+                    const res = await fetch(`/api/heatpumps/${hpId}/history?minutes=${mins}`);
                     const data = await res.json();
 
                     byPump[hpId].forEach(canvas => {
@@ -1710,6 +1709,25 @@
             });
 
             await Promise.all(fetches);
+        }
+
+        async function loadSparklineForPump(hpId) {
+            const mins = sparklineMinutesPerPump[hpId] || DEFAULT_SPARKLINE_MINUTES;
+            const canvases = document.querySelectorAll(`canvas.sparkline[data-hp="${hpId}"]`);
+            if (canvases.length === 0) return;
+
+            try {
+                const res = await fetch(`/api/heatpumps/${hpId}/history?minutes=${mins}`);
+                const data = await res.json();
+                canvases.forEach(canvas => {
+                    const field = canvas.dataset.field;
+                    const points = (data.fields || {})[field] || [];
+                    const colors = getSparklineColor(canvas);
+                    drawSparkline(canvas, points, colors);
+                });
+            } catch (err) {
+                console.error(`Failed to load sparklines for ${hpId}:`, err);
+            }
         }
 
         // Check if restart is needed (from localStorage)

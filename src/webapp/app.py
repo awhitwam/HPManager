@@ -175,6 +175,7 @@ async def dashboard(request: Request):
             heat_pump_data.append(hp_info)
 
     sparkline_minutes = display_settings.get("sparkline_minutes", 30)
+    sparkline_minutes_per_pump = display_settings.get("sparkline_minutes_per_pump", {})
 
     return templates.TemplateResponse(
         "index.html",
@@ -184,6 +185,7 @@ async def dashboard(request: Request):
             "last_update": datetime.utcnow(),
             "refresh_interval": refresh_interval,
             "sparkline_minutes": sparkline_minutes,
+            "sparkline_minutes_per_pump": sparkline_minutes_per_pump,
             "DEFAULT_VISIBLE_FIELDS": DEFAULT_VISIBLE_FIELDS,
         }
     )
@@ -527,6 +529,7 @@ async def get_settings():
             "display": {
                 "refresh_interval": display_settings.get("refresh_interval", 10),
                 "sparkline_minutes": display_settings.get("sparkline_minutes", 30),
+                "sparkline_minutes_per_pump": display_settings.get("sparkline_minutes_per_pump", {}),
                 "visible_fields": display_settings.get("visible_fields", {}),
             }
         }
