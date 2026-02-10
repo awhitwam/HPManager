@@ -64,25 +64,6 @@
             margin-top: 10px;
         }
 
-        .hp-timeframe {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-top: 6px;
-            font-size: 11px;
-            color: #9ca3af;
-        }
-
-        .hp-timeframe input[type="range"] {
-            width: 100px;
-            height: 4px;
-            accent-color: #667eea;
-        }
-
-        .hp-timeframe-label {
-            min-width: 42px;
-            font-variant-numeric: tabular-nums;
-        }
 
         .heat-pumps-grid {
             display: grid;
@@ -170,6 +151,21 @@
             font-size: 12px;
             margin-left: 10px;
             white-space: nowrap;
+        }
+
+        .btn-hp-cog {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 4px;
+            transition: color 0.2s;
+            align-self: flex-start;
+        }
+
+        .btn-hp-cog:hover {
+            color: #667eea;
         }
 
         .status-badge {
@@ -788,8 +784,8 @@
                 <button class="btn btn-secondary" onclick="openSettingsModal()">
                     Settings
                 </button>
-                <button class="btn btn-primary" onclick="openManageModal()">
-                    Manage Heat Pumps
+                <button class="btn btn-primary" onclick="openAddModal()">
+                    + Add Heat Pump
                 </button>
             </div>
         </header>
@@ -814,13 +810,6 @@
                             <div class="hp-location">📍 {{ hp.location }}</div>
                             {% set m = hp.data.metrics or {} %}
                             <div class="hp-header-mode" data-hp="{{ hp.id }}" style="font-size: 13px; color: #8b5cf6; font-weight: 600; margin-top: 4px;">{{ m.operating_mode|default('', true) }}</div>
-                            {% set hp_tf = sparkline_minutes_per_pump.get(hp.id, sparkline_minutes) %}
-                            <div class="hp-timeframe">
-                                <span>Timeframe</span>
-                                <input type="range" class="timeframe-slider" data-hp="{{ hp.id }}"
-                                       min="5" max="480" step="5" value="{{ hp_tf }}">
-                                <span class="hp-timeframe-label" data-hp-tf-label="{{ hp.id }}">{{ hp_tf }} min</span>
-                            </div>
                         </div>
                         <div class="hp-status-card" data-hp-status-card="{{ hp.id }}">
                             <div class="status-row" data-flag="compressor_running">
@@ -856,6 +845,7 @@
                                 <span class="status-since" data-flag-since="nhz_stages_running"></span>
                             </div>
                         </div>
+                        <button class="btn-hp-cog" onclick="openEditModal('{{ hp.id }}')" title="Settings">&#9881;</button>
                         <div class="status-badge {% if hp.data.timestamp %}status-online{% else %}status-offline{% endif %}" data-hp-badge="{{ hp.id }}">
                             {% if hp.data.timestamp %}Online{% else %}Offline{% endif %}
                         </div>
@@ -1090,13 +1080,30 @@
                         </div>
                     </div>
 
+                    <div class="form-section" id="timeframe-section" style="display: none;">
+                        <div class="form-section-title">Timeframe</div>
+                        <div class="form-help" style="margin-bottom: 10px;">
+                            Time window for sparkline graphs on this pump's dashboard card.
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="range" id="hp-timeframe" min="5" max="480" step="5" value="30"
+                                   style="flex: 1; accent-color: #667eea;"
+                                   oninput="document.getElementById('hp-timeframe-label').textContent = this.value + ' min'">
+                            <span id="hp-timeframe-label" style="min-width: 50px; font-variant-numeric: tabular-nums;">30 min</span>
+                        </div>
+                    </div>
+
                     <input type="hidden" id="edit-mode" value="false">
                     <input type="hidden" id="original-id" value="">
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeFormModal()">Cancel</button>
-                <button type="submit" form="hp-form" class="btn btn-primary" id="save-btn">Save</button>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button type="button" class="btn btn-danger" id="form-delete-btn" style="display:none;"
+                        onclick="openDeleteFromEdit()">Delete</button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeFormModal()">Cancel</button>
+                    <button type="submit" form="hp-form" class="btn btn-primary" id="save-btn">Save</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1211,7 +1218,6 @@
             loadStateChanges();
             startLastUpdateTimer();
             initMetricDragAndDrop();
-            initTimeframeSliders();
         });
 
         // Server-side settings
@@ -1293,25 +1299,7 @@
             });
         }
 
-        // --- Per-pump timeframe sliders ---
-        function initTimeframeSliders() {
-            document.querySelectorAll('.timeframe-slider').forEach(slider => {
-                const hpId = slider.dataset.hp;
-                const label = document.querySelector(`[data-hp-tf-label="${hpId}"]`);
-
-                slider.addEventListener('input', () => {
-                    label.textContent = slider.value + ' min';
-                });
-
-                slider.addEventListener('change', () => {
-                    const mins = parseInt(slider.value);
-                    sparklineMinutesPerPump[hpId] = mins;
-                    loadSparklineForPump(hpId);
-                    saveTimeframeForPump(hpId, mins);
-                });
-            });
-        }
-
+        // --- Per-pump timeframe save ---
         async function saveTimeframeForPump(hpId, minutes) {
             try {
                 const settingsRes = await fetch('/api/settings');
@@ -1845,7 +1833,10 @@
             document.getElementById('hp-id').readOnly = false;
             document.getElementById('hp-enabled').checked = true;
             document.getElementById('display-fields-section').style.display = 'none';
+            document.getElementById('timeframe-section').style.display = 'none';
+            document.getElementById('form-delete-btn').style.display = 'none';
             closeManageModal();
+            stopAutoRefresh();
             document.getElementById('form-modal').classList.add('show');
         }
 
@@ -1879,7 +1870,17 @@
             document.getElementById('display-fields-section').style.display = '';
             await loadFieldsForEditModal(hp);
 
+            // Show timeframe slider with current value
+            const tfValue = sparklineMinutesPerPump[hpId] || DEFAULT_SPARKLINE_MINUTES;
+            document.getElementById('timeframe-section').style.display = '';
+            document.getElementById('hp-timeframe').value = tfValue;
+            document.getElementById('hp-timeframe-label').textContent = tfValue + ' min';
+
+            // Show delete button
+            document.getElementById('form-delete-btn').style.display = '';
+
             closeManageModal();
+            stopAutoRefresh();
             document.getElementById('form-modal').classList.add('show');
         }
 
@@ -2005,32 +2006,41 @@
 
                 // If editing, also save the visible fields for this pump
                 if (editMode) {
-                    const checkedFields = Array.from(
-                        document.querySelectorAll('input[name="hp_visible_field"]:checked')
-                    ).map(cb => cb.value);
+                    try {
+                        const settingsRes = await fetch('/api/settings');
+                        const currentSettings = await settingsRes.json();
 
-                    if (checkedFields.length > 0) {
-                        try {
-                            const settingsRes = await fetch('/api/settings');
-                            const currentSettings = await settingsRes.json();
-                            const visibleFields = currentSettings.display.visible_fields || {};
+                        // Update visible fields
+                        const visibleFields = currentSettings.display.visible_fields || {};
+                        const checkedFields = Array.from(
+                            document.querySelectorAll('input[name="hp_visible_field"]:checked')
+                        ).map(cb => cb.value);
+                        if (checkedFields.length > 0) {
                             visibleFields[heatPump.id || originalId] = checkedFields;
-
-                            await fetch('/api/settings', {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    collector: currentSettings.collector,
-                                    display: {
-                                        refresh_interval: currentSettings.display.refresh_interval,
-                                        sparkline_minutes: currentSettings.display.sparkline_minutes || 30,
-                                        visible_fields: visibleFields,
-                                    }
-                                })
-                            });
-                        } catch (e) {
-                            console.error('Failed to save display fields:', e);
                         }
+
+                        // Update timeframe
+                        const timeframes = currentSettings.display.sparkline_minutes_per_pump || {};
+                        const tfValue = parseInt(document.getElementById('hp-timeframe').value);
+                        const pumpKey = heatPump.id || originalId;
+                        timeframes[pumpKey] = tfValue;
+                        sparklineMinutesPerPump[pumpKey] = tfValue;
+
+                        await fetch('/api/settings', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                collector: currentSettings.collector,
+                                display: {
+                                    refresh_interval: currentSettings.display.refresh_interval,
+                                    sparkline_minutes: currentSettings.display.sparkline_minutes || DEFAULT_SPARKLINE_MINUTES,
+                                    sparkline_minutes_per_pump: timeframes,
+                                    visible_fields: visibleFields,
+                                }
+                            })
+                        });
+                    } catch (e) {
+                        console.error('Failed to save display settings:', e);
                     }
                 }
 
@@ -2056,6 +2066,16 @@
             deleteTarget = hpId;
             document.getElementById('delete-hp-name').textContent = hpName;
             closeManageModal();
+            document.getElementById('delete-modal').classList.add('show');
+        }
+
+        function openDeleteFromEdit() {
+            const hpId = document.getElementById('original-id').value;
+            const hp = allHeatPumps.find(h => h.id === hpId);
+            if (!hp) return;
+            closeFormModal();
+            deleteTarget = hpId;
+            document.getElementById('delete-hp-name').textContent = hp.name;
             document.getElementById('delete-modal').classList.add('show');
         }
 
