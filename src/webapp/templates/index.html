@@ -1841,6 +1841,16 @@
         }
 
         async function openEditModal(hpId) {
+            // Ensure allHeatPumps is populated (may not be if manage modal was never opened)
+            if (allHeatPumps.length === 0) {
+                try {
+                    const response = await fetch('/api/heatpumps');
+                    const data = await response.json();
+                    allHeatPumps = data.heat_pumps || [];
+                } catch (err) {
+                    console.error('Failed to load heat pumps:', err);
+                }
+            }
             const hp = allHeatPumps.find(h => h.id === hpId);
             if (!hp) {
                 showToast('Heat pump not found', 'error');
