@@ -168,6 +168,33 @@
             color: #667eea;
         }
 
+        .hp-timeframe-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0 0 0;
+        }
+
+        .hp-timeframe-bar label {
+            font-size: 12px;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .hp-timeframe-bar input[type="range"] {
+            flex: 1;
+            accent-color: #667eea;
+            max-width: 160px;
+        }
+
+        .hp-timeframe-bar .tf-value {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+            min-width: 42px;
+            font-variant-numeric: tabular-nums;
+        }
+
         .status-badge {
             padding: 6px 12px;
             border-radius: 20px;
@@ -810,6 +837,15 @@
                             <div class="hp-location">📍 {{ hp.location }}</div>
                             {% set m = hp.data.metrics or {} %}
                             <div class="hp-header-mode" data-hp="{{ hp.id }}" style="font-size: 13px; color: #8b5cf6; font-weight: 600; margin-top: 4px;">{{ m.operating_mode|default('', true) }}</div>
+                            {% set tf_mins = sparkline_minutes_per_pump.get(hp.id, sparkline_minutes) %}
+                            <div class="hp-timeframe-bar">
+                                <label>Timeframe</label>
+                                <input type="range" min="5" max="480" step="5" value="{{ tf_mins }}"
+                                       data-hp-timeframe="{{ hp.id }}"
+                                       oninput="this.nextElementSibling.textContent = this.value + ' min'"
+                                       onchange="saveTimeframe('{{ hp.id }}', this.value)">
+                                <span class="tf-value">{{ tf_mins }} min</span>
+                            </div>
                         </div>
                         <div class="hp-status-card" data-hp-status-card="{{ hp.id }}">
                             <div class="status-row" data-flag="compressor_running">
@@ -1080,19 +1116,6 @@
                         </div>
                     </div>
 
-                    <div class="form-section" id="timeframe-section" style="display: none;">
-                        <div class="form-section-title">Timeframe</div>
-                        <div class="form-help" style="margin-bottom: 10px;">
-                            Time window for sparkline graphs on this pump's dashboard card.
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="range" id="hp-timeframe" min="5" max="480" step="5" value="30"
-                                   style="flex: 1; accent-color: #667eea;"
-                                   oninput="document.getElementById('hp-timeframe-label').textContent = this.value + ' min'">
-                            <span id="hp-timeframe-label" style="min-width: 50px; font-variant-numeric: tabular-nums;">30 min</span>
-                        </div>
-                    </div>
-
                     <input type="hidden" id="edit-mode" value="false">
                     <input type="hidden" id="original-id" value="">
                 </form>
@@ -1224,6 +1247,36 @@
         const SERVER_REFRESH_INTERVAL = {{ refresh_interval }};
         const DEFAULT_SPARKLINE_MINUTES = {{ sparkline_minutes }};
         let sparklineMinutesPerPump = {{ sparkline_minutes_per_pump | tojson }};
+
+        // Save timeframe slider change directly from card header
+        async function saveTimeframe(hpId, value) {
+            const mins = parseInt(value);
+            sparklineMinutesPerPump[hpId] = mins;
+            try {
+                const res = await fetch('/api/settings');
+                const currentSettings = await res.json();
+                const timeframes = currentSettings.display.sparkline_minutes_per_pump || {};
+                timeframes[hpId] = mins;
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        collector: currentSettings.collector,
+                        display: {
+                            refresh_interval: currentSettings.display.refresh_interval,
+                            sparkline_minutes: currentSettings.display.sparkline_minutes || DEFAULT_SPARKLINE_MINUTES,
+                            sparkline_minutes_per_pump: timeframes,
+                            visible_fields: currentSettings.display.visible_fields || {},
+                        }
+                    })
+                });
+                // Refresh sparklines with new timeframe
+                loadSparklineForPump(hpId);
+            } catch (e) {
+                console.error('Failed to save timeframe:', e);
+                showToast('Failed to save timeframe', 'error');
+            }
+        }
 
         // Field metadata for JS-side formatting (mirrors Jinja2 field_meta)
         const FIELD_META = {
@@ -1833,7 +1886,6 @@
             document.getElementById('hp-id').readOnly = false;
             document.getElementById('hp-enabled').checked = true;
             document.getElementById('display-fields-section').style.display = 'none';
-            document.getElementById('timeframe-section').style.display = 'none';
             document.getElementById('form-delete-btn').style.display = 'none';
             closeManageModal();
             stopAutoRefresh();
@@ -1879,12 +1931,6 @@
             // Load and display field checklist for this pump
             document.getElementById('display-fields-section').style.display = '';
             await loadFieldsForEditModal(hp);
-
-            // Show timeframe slider with current value
-            const tfValue = sparklineMinutesPerPump[hpId] || DEFAULT_SPARKLINE_MINUTES;
-            document.getElementById('timeframe-section').style.display = '';
-            document.getElementById('hp-timeframe').value = tfValue;
-            document.getElementById('hp-timeframe-label').textContent = tfValue + ' min';
 
             // Show delete button
             document.getElementById('form-delete-btn').style.display = '';
@@ -2029,13 +2075,6 @@
                             visibleFields[heatPump.id || originalId] = checkedFields;
                         }
 
-                        // Update timeframe
-                        const timeframes = currentSettings.display.sparkline_minutes_per_pump || {};
-                        const tfValue = parseInt(document.getElementById('hp-timeframe').value);
-                        const pumpKey = heatPump.id || originalId;
-                        timeframes[pumpKey] = tfValue;
-                        sparklineMinutesPerPump[pumpKey] = tfValue;
-
                         await fetch('/api/settings', {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -2044,7 +2083,7 @@
                                 display: {
                                     refresh_interval: currentSettings.display.refresh_interval,
                                     sparkline_minutes: currentSettings.display.sparkline_minutes || DEFAULT_SPARKLINE_MINUTES,
-                                    sparkline_minutes_per_pump: timeframes,
+                                    sparkline_minutes_per_pump: currentSettings.display.sparkline_minutes_per_pump || {},
                                     visible_fields: visibleFields,
                                 }
                             })
