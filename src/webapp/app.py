@@ -463,6 +463,7 @@ async def get_heatpump_state_changes(heat_pump_id: str, hours: int = 168):
         |> filter(fn: (r) => r["_measurement"] == "heatpump_metrics")
         |> filter(fn: (r) => r["heat_pump_id"] == "{heat_pump_id}")
         |> filter(fn: (r) => r["_field"] =~ /^({field_regex})$/)
+        |> aggregateWindow(every: 5m, fn: last, createEmpty: false)
         |> sort(columns: ["_time"], desc: false)
     '''
 
