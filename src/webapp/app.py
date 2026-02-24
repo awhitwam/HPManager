@@ -438,7 +438,7 @@ async def get_heatpump_history(heat_pump_id: str, minutes: int = 30):
 
 
 @app.get("/api/heatpumps/{heat_pump_id}/state-changes", response_class=JSONResponse)
-async def get_heatpump_state_changes(heat_pump_id: str, hours: int = 24):
+async def get_heatpump_state_changes(heat_pump_id: str, hours: int = 168):
     """Get the timestamp of the last state change for each boolean status field.
 
     Queries InfluxDB for boolean fields over the last N hours and finds

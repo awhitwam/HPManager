@@ -1570,11 +1570,13 @@
             const hh = d.getHours().toString().padStart(2, '0');
             const mm = d.getMinutes().toString().padStart(2, '0');
 
-            // If more than 24h ago, show date too
+            // If more than 24h ago, include day name and date
             if (diffMins > 1440) {
+                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const dayName = days[d.getDay()];
                 const dd = d.getDate().toString().padStart(2, '0');
                 const mo = (d.getMonth() + 1).toString().padStart(2, '0');
-                return `${dd}/${mo} ${hh}:${mm}`;
+                return `${dayName} ${dd}/${mo} ${hh}:${mm}`;
             }
             return `${hh}:${mm}`;
         }
